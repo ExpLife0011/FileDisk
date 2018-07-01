@@ -31,7 +31,7 @@
 int FileDiskSyntax(void)
 {
     fprintf(stderr, "syntax:\n");
-    fprintf(stderr, "filedisk /mount  <devicenumber> <filename> [size[k|M|G] | /ro | /cd] <drive:>\n");
+    fprintf(stderr, "filedisk /mount  <devicenumber> <filename> [size[k|M|G] | /ro | /cd] <drive:> <isPhysical> <fileOffset>\n");
     fprintf(stderr, "filedisk /umount <drive:>\n");
     fprintf(stderr, "filedisk /status <drive:>\n");
     fprintf(stderr, "\n");
@@ -101,6 +101,7 @@ FileDiskMount(
         CloseHandle(Device);
         SetLastError(ERROR_BUSY);
         PrintLastError(&VolumeName[4]);
+		fprintf(stdout, "FileDisk:CreateFile error,errcode:%d\n", GetLastError());
         return -1;
     }
 
@@ -120,6 +121,7 @@ FileDiskMount(
         ))
     {
         PrintLastError(&VolumeName[4]);
+		fprintf(stdout, "FileDisk:DefineDosDevice error,errcode:%d\n", GetLastError());
         return -1;
     }
 
@@ -137,6 +139,7 @@ FileDiskMount(
     {
         PrintLastError(&VolumeName[4]);
         DefineDosDevice(DDD_REMOVE_DEFINITION, &VolumeName[4], NULL);
+		fprintf(stdout, "FileDisk:CreateFile1 error,errcode:%d\n", GetLastError());
         return -1;
     }
 
@@ -154,6 +157,7 @@ FileDiskMount(
         PrintLastError("FileDisk:");
         DefineDosDevice(DDD_REMOVE_DEFINITION, &VolumeName[4], NULL);
         CloseHandle(Device);
+		fprintf(stdout, "FileDisk:DeviceIoControl error,errcode:%d\n", GetLastError());
         return -1;
     }
 
@@ -352,11 +356,15 @@ int __cdecl main(int argc, char* argv[])
     char*                   Option;
     char                    DriveLetter;
     BOOLEAN                 CdImage = FALSE;
+	BOOLEAN					PhysicalDrive = FALSE;
     POPEN_FILE_INFORMATION  OpenFileInformation;
+
+	//Ìí¼Óµ÷ÊÔ´°¿Ú
+	MessageBox(NULL, NULL, NULL, MB_OK);
 
     Command = argv[1];
 
-    if ((argc == 5 || argc == 6) && !strcmp(Command, "/mount"))
+    if ((argc == 5 || argc == 6 || argc == 7) && !strcmp(Command, "/mount"))
     {
         FileName = argv[3];
 
@@ -445,6 +453,16 @@ int __cdecl main(int argc, char* argv[])
             DriveLetter = argv[4][0];
         }
         OpenFileInformation->DriveLetter = DriveLetter;
+		if (atoi(argv[6]))
+		{
+			PhysicalDrive = TRUE;
+		}
+		else
+		{
+			PhysicalDrive = FALSE;
+		}
+		OpenFileInformation->PhysicalDrive = PhysicalDrive;		//add by chengheming
+// 		OpenFileInformation->FileOffset.QuadPart = atoll(argv[7]);
         DeviceNumber = atoi(argv[2]);
         return FileDiskMount(DeviceNumber, OpenFileInformation, CdImage);
     }

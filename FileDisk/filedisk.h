@@ -42,7 +42,9 @@
 
 typedef struct _OPEN_FILE_INFORMATION {
     LARGE_INTEGER   FileSize;
+	LARGE_INTEGER	FileOffset;			//记录文件系统偏移
     BOOLEAN         ReadOnly;
+	BOOLEAN			PhysicalDrive;		//判断是否为物理磁盘
     UCHAR           DriveLetter;
     USHORT          FileNameLength;
     CHAR            FileName[1];

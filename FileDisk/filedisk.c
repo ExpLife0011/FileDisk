@@ -72,6 +72,7 @@ typedef struct _DEVICE_EXTENSION {
     KEVENT                      request_event;
     PVOID                       thread_pointer;
     BOOLEAN                     terminate_thread;
+	LARGE_INTEGER				file_offset;				//add by chengheming	记录偏移
 } DEVICE_EXTENSION, *PDEVICE_EXTENSION;
 
 #ifdef _PREFAST_
@@ -1205,6 +1206,8 @@ FileDiskThread (
     PUCHAR              system_buffer;
     PUCHAR              buffer;
 
+	LARGE_INTEGER		fileOffset;			//读写文件偏移 add by chengheming
+
     PAGED_CODE();
 
     ASSERT(Context != NULL);
@@ -1258,6 +1261,12 @@ FileDiskThread (
                     irp->IoStatus.Information = 0;
                     break;
                 }
+
+				/************************************************************************/
+				/* 修改读取文件的偏移		add by chengheming                              */
+				/************************************************************************/
+// 				fileOffset.QuadPart = io_stack->Parameters.Read.ByteOffset.QuadPart + device_extension->file_offset.QuadPart;
+
                 ZwReadFile(
                     device_extension->file_handle,
                     NULL,
@@ -1266,7 +1275,7 @@ FileDiskThread (
                     &irp->IoStatus,
                     buffer,
                     io_stack->Parameters.Read.Length,
-                    &io_stack->Parameters.Read.ByteOffset,
+					&io_stack->Parameters.Read.ByteOffset,/*&fileOffset,*/
                     NULL
                     );
                 RtlCopyMemory(system_buffer, buffer, io_stack->Parameters.Read.Length);
@@ -1282,6 +1291,14 @@ FileDiskThread (
                     irp->IoStatus.Information = 0;
                     break;
                 }
+
+				/************************************************************************/
+				/* 修改写文件的偏移		add by chengheming                              */
+				/************************************************************************/
+
+// 				fileOffset.QuadPart = io_stack->Parameters.Write.ByteOffset.QuadPart + device_extension->file_offset.QuadPart;
+
+
                 ZwWriteFile(
                     device_extension->file_handle,
                     NULL,
@@ -1290,7 +1307,7 @@ FileDiskThread (
                     &irp->IoStatus,
                     MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority),
                     io_stack->Parameters.Write.Length,
-                    &io_stack->Parameters.Write.ByteOffset,
+                    &io_stack->Parameters.Write.ByteOffset,/*&fileOffset,*/
                     NULL
                     );
                 break;
@@ -1512,20 +1529,27 @@ FileDiskOpenFile (
 
     RtlFreeUnicodeString(&ufile_name);
 
-    status = ZwQueryInformationFile(
-        device_extension->file_handle,
-        &Irp->IoStatus,
-        &file_basic,
-        sizeof(FILE_BASIC_INFORMATION),
-        FileBasicInformation
-        );
+	/************************************************************************/
+	/* add by chengheming  添加条件判断，如果为物理磁盘，不用此种方法获取文件属性 */
+	/************************************************************************/
 
-    if (!NT_SUCCESS(status))
-    {
-        ExFreePool(device_extension->file_name.Buffer);
-        ZwClose(device_extension->file_handle);
-        return status;
-    }
+	if (!open_file_information->PhysicalDrive)
+	{
+		status = ZwQueryInformationFile(
+			device_extension->file_handle,
+			&Irp->IoStatus,
+			&file_basic,
+			sizeof(FILE_BASIC_INFORMATION),
+			FileBasicInformation
+			);
+
+		if (!NT_SUCCESS(status))
+		{
+			ExFreePool(device_extension->file_name.Buffer);
+			ZwClose(device_extension->file_handle);
+			return status;
+		}
+
 
     //
     // The NT cache manager can deadlock if a filesystem that is using the cache
@@ -1536,34 +1560,47 @@ FileDiskOpenFile (
     // need to store the decompressed/unencrypted data somewhere, therefor we put
     // an extra check here and don't alow disk images to be compressed/encrypted.
     //
-    if (file_basic.FileAttributes & (FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_ENCRYPTED))
-    {
-        DbgPrint("FileDisk: Warning: File is compressed or encrypted. File attributes: %#x.\n", file_basic.FileAttributes);
-/*
-        ExFreePool(device_extension->file_name.Buffer);
-        ZwClose(device_extension->file_handle);
-        Irp->IoStatus.Status = STATUS_ACCESS_DENIED;
-        Irp->IoStatus.Information = 0;
-        return STATUS_ACCESS_DENIED;
-*/
-    }
 
-    status = ZwQueryInformationFile(
-        device_extension->file_handle,
-        &Irp->IoStatus,
-        &file_standard,
-        sizeof(FILE_STANDARD_INFORMATION),
-        FileStandardInformation
-        );
+		if (file_basic.FileAttributes & (FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_ENCRYPTED))
+		{
+			DbgPrint("FileDisk: Warning: File is compressed or encrypted. File attributes: %#x.\n", file_basic.FileAttributes);
+			/*
+			ExFreePool(device_extension->file_name.Buffer);
+			ZwClose(device_extension->file_handle);
+			Irp->IoStatus.Status = STATUS_ACCESS_DENIED;
+			Irp->IoStatus.Information = 0;
+			return STATUS_ACCESS_DENIED;
+			*/
+		}
 
-    if (!NT_SUCCESS(status))
-    {
-        ExFreePool(device_extension->file_name.Buffer);
-        ZwClose(device_extension->file_handle);
-        return status;
-    }
+		status = ZwQueryInformationFile(
+			device_extension->file_handle,
+			&Irp->IoStatus,
+			&file_standard,
+			sizeof(FILE_STANDARD_INFORMATION),
+			FileStandardInformation
+			);
 
-    device_extension->file_size.QuadPart = file_standard.EndOfFile.QuadPart;
+		if (!NT_SUCCESS(status))
+		{
+			ExFreePool(device_extension->file_name.Buffer);
+			ZwClose(device_extension->file_handle);
+			return status;
+		}
+
+		device_extension->file_size.QuadPart = file_standard.EndOfFile.QuadPart;
+	}
+	else
+	{
+		//物理磁盘使用指定大小，不使用获取的文件大小   add by chengheming
+		device_extension->file_size.QuadPart = open_file_information->FileSize.QuadPart;
+	}
+
+	/************************************************************************/
+	/* 记录文件偏移		add by chengheming                                  */
+	/************************************************************************/
+
+// 	device_extension->file_offset.QuadPart = open_file_information->FileOffset.QuadPart;
 
     status = ZwQueryInformationFile(
         device_extension->file_handle,
