@@ -1265,8 +1265,8 @@ FileDiskThread (
 				/************************************************************************/
 				/* 修改读取文件的偏移		add by chengheming                              */
 				/************************************************************************/
-// 				fileOffset.QuadPart = io_stack->Parameters.Read.ByteOffset.QuadPart + device_extension->file_offset.QuadPart;
-
+				fileOffset.QuadPart = io_stack->Parameters.Read.ByteOffset.QuadPart + device_extension->file_offset.QuadPart;
+				KdPrint(("filedisk: read fileoffset: %lld", fileOffset.QuadPart));
                 ZwReadFile(
                     device_extension->file_handle,
                     NULL,
@@ -1275,7 +1275,8 @@ FileDiskThread (
                     &irp->IoStatus,
                     buffer,
                     io_stack->Parameters.Read.Length,
-					&io_stack->Parameters.Read.ByteOffset,/*&fileOffset,*/
+// 					&io_stack->Parameters.Read.ByteOffset,
+					&fileOffset,
                     NULL
                     );
                 RtlCopyMemory(system_buffer, buffer, io_stack->Parameters.Read.Length);
@@ -1296,9 +1297,9 @@ FileDiskThread (
 				/* 修改写文件的偏移		add by chengheming                              */
 				/************************************************************************/
 
-// 				fileOffset.QuadPart = io_stack->Parameters.Write.ByteOffset.QuadPart + device_extension->file_offset.QuadPart;
+				fileOffset.QuadPart = io_stack->Parameters.Write.ByteOffset.QuadPart + device_extension->file_offset.QuadPart;
 
-
+				KdPrint(("filedisk: write fileoffset: %lld", fileOffset.QuadPart));
                 ZwWriteFile(
                     device_extension->file_handle,
                     NULL,
@@ -1307,7 +1308,8 @@ FileDiskThread (
                     &irp->IoStatus,
                     MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority),
                     io_stack->Parameters.Write.Length,
-                    &io_stack->Parameters.Write.ByteOffset,/*&fileOffset,*/
+//                  &io_stack->Parameters.Write.ByteOffset,
+					&fileOffset,
                     NULL
                     );
                 break;
@@ -1600,7 +1602,7 @@ FileDiskOpenFile (
 	/* 记录文件偏移		add by chengheming                                  */
 	/************************************************************************/
 
-// 	device_extension->file_offset.QuadPart = open_file_information->FileOffset.QuadPart;
+	device_extension->file_offset.QuadPart = open_file_information->FileOffset.QuadPart;
 
     status = ZwQueryInformationFile(
         device_extension->file_handle,

@@ -462,7 +462,7 @@ int __cdecl main(int argc, char* argv[])
 			PhysicalDrive = FALSE;
 		}
 		OpenFileInformation->PhysicalDrive = PhysicalDrive;		//add by chengheming
-// 		OpenFileInformation->FileOffset.QuadPart = atoll(argv[7]);
+		OpenFileInformation->FileOffset.QuadPart = /*atoll(argv[7]);*/104857600 + 1024;
         DeviceNumber = atoi(argv[2]);
         return FileDiskMount(DeviceNumber, OpenFileInformation, CdImage);
     }
