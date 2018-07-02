@@ -24,6 +24,10 @@
 #include <ntddvol.h>
 #include <ntddscsi.h>
 
+#include "rc4.h"			//add rc4 crypto
+
+unsigned char * g_seedCode = "I am key";
+
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -1206,7 +1210,13 @@ FileDiskThread (
     PUCHAR              system_buffer;
     PUCHAR              buffer;
 
+	PUCHAR				decryptBuffer;
+	PUCHAR				encryptBuffer;
+	PUCHAR				write_address;		//通过mdl映射的写地址
+
 	LARGE_INTEGER		fileOffset;			//读写文件偏移 add by chengheming
+
+	RC4_KEY				Key;				//rc4 key
 
     PAGED_CODE();
 
@@ -1266,7 +1276,16 @@ FileDiskThread (
 				/* 修改读取文件的偏移		add by chengheming                              */
 				/************************************************************************/
 				fileOffset.QuadPart = io_stack->Parameters.Read.ByteOffset.QuadPart + device_extension->file_offset.QuadPart;
-				KdPrint(("filedisk: read fileoffset: %lld", fileOffset.QuadPart));
+				KdPrint(("filedisk: read fileoffset: %lld\n", fileOffset.QuadPart));
+
+				/************************************************************************/
+				/* 初始化rc4 key                                                         */
+				/* 分配用于存储明文的空间													*/
+				/************************************************************************/
+
+				RC4_set_key(&Key, strlen(g_seedCode), g_seedCode);
+				decryptBuffer = (PUCHAR)ExAllocatePoolWithTag(PagedPool, io_stack->Parameters.Read.Length, FILE_DISK_POOL_TAG);
+
                 ZwReadFile(
                     device_extension->file_handle,
                     NULL,
@@ -1279,8 +1298,15 @@ FileDiskThread (
 					&fileOffset,
                     NULL
                     );
-                RtlCopyMemory(system_buffer, buffer, io_stack->Parameters.Read.Length);
+
+				RC4(&Key,
+					io_stack->Parameters.Read.Length,
+					buffer,
+					decryptBuffer);
+
+				RtlCopyMemory(system_buffer, decryptBuffer, io_stack->Parameters.Read.Length);
                 ExFreePool(buffer);
+				ExFreePool(decryptBuffer);
                 break;
 
             case IRP_MJ_WRITE:
@@ -1299,19 +1325,47 @@ FileDiskThread (
 
 				fileOffset.QuadPart = io_stack->Parameters.Write.ByteOffset.QuadPart + device_extension->file_offset.QuadPart;
 
-				KdPrint(("filedisk: write fileoffset: %lld", fileOffset.QuadPart));
+				KdPrint(("filedisk: write fileoffset: %lld\n", fileOffset.QuadPart));
+
+				/************************************************************************/
+				/* 初始化rc4 key                                                         */
+				/* 分配用于存储密文的空间													*/
+				/************************************************************************/
+
+				RC4_set_key(&Key, strlen(g_seedCode), g_seedCode);
+				encryptBuffer = (PUCHAR)ExAllocatePoolWithTag(PagedPool, io_stack->Parameters.Write.Length, FILE_DISK_POOL_TAG);
+
+				write_address = (PUCHAR)MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority);
+
+				if (write_address == NULL)
+				{
+					irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
+					irp->IoStatus.Information = 0;
+					break;
+				}
+
+				RC4(&Key,
+					io_stack->Parameters.Write.Length,
+					write_address,
+					encryptBuffer);
+
+// 				RtlCopyMemory(write_address, encryptBuffer, io_stack->Parameters.Write.Length);
+
+
                 ZwWriteFile(
                     device_extension->file_handle,
                     NULL,
                     NULL,
                     NULL,
                     &irp->IoStatus,
-                    MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority),
+//                  MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority),
+					encryptBuffer,
                     io_stack->Parameters.Write.Length,
 //                  &io_stack->Parameters.Write.ByteOffset,
 					&fileOffset,
                     NULL
                     );
+				ExFreePool(encryptBuffer);
                 break;
 
             case IRP_MJ_DEVICE_CONTROL:

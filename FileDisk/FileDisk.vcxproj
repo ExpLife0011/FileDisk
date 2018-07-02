@@ -202,9 +202,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="filedisk.c" />
+    <ClCompile Include="rc4_enc.c" />
+    <ClCompile Include="rc4_skey.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="filedisk.h" />
+    <ClInclude Include="rc4.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

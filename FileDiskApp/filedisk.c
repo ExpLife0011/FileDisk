@@ -191,6 +191,7 @@ int FileDiskUmount(char DriveLetter)
     if (Device == INVALID_HANDLE_VALUE)
     {
         PrintLastError(&VolumeName[4]);
+		fprintf(stderr, "FilediskUmount CreateFile error, errcode: %d\n", GetLastError());
         return -1;
     }
 
@@ -207,6 +208,7 @@ int FileDiskUmount(char DriveLetter)
     {
         PrintLastError(&VolumeName[4]);
         CloseHandle(Device);
+		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_LOCK_VOLUME error, errcode: %d\n", GetLastError());
         return -1;
     }
 
@@ -223,6 +225,7 @@ int FileDiskUmount(char DriveLetter)
     {
         PrintLastError("FileDisk:");
         CloseHandle(Device);
+		fprintf(stderr, "FilediskUmount DeviceIoControl IOCTL_FILE_DISK_CLOSE_FILE error, errcode: %d\n", GetLastError());
         return -1;
     }
 
@@ -239,7 +242,8 @@ int FileDiskUmount(char DriveLetter)
     {
         PrintLastError(&VolumeName[4]);
         CloseHandle(Device);
-        return -1;
+		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_DISMOUNT_VOLUME error, errcode: %d\n", GetLastError());
+		return -1;
     }
 
     if (!DeviceIoControl(
@@ -255,7 +259,8 @@ int FileDiskUmount(char DriveLetter)
     {
         PrintLastError(&VolumeName[4]);
         CloseHandle(Device);
-        return -1;
+		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_UNLOCK_VOLUME error, errcode: %d\n", GetLastError());
+		return -1;
     }
 
     CloseHandle(Device);
@@ -267,6 +272,7 @@ int FileDiskUmount(char DriveLetter)
         ))
     {
         PrintLastError(&VolumeName[4]);
+		fprintf(stderr, "FilediskUmount DefineDosDevice error, errcode: %d\n", GetLastError());
         return -1;
     }
 

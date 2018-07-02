@@ -17,15 +17,27 @@
       <UniqueIdentifier>{8E41214B-6785-4CFE-B992-037D68949A14}</UniqueIdentifier>
       <Extensions>inf;inv;inx;mof;mc;</Extensions>
     </Filter>
+    <Filter Include="RC4">
+      <UniqueIdentifier>{f14b65bc-5f53-4fa1-82e7-6e9c7e6d112e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="filedisk.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="rc4_enc.c">
+      <Filter>RC4</Filter>
+    </ClCompile>
+    <ClCompile Include="rc4_skey.c">
+      <Filter>RC4</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="filedisk.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rc4.h">
+      <Filter>RC4</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
