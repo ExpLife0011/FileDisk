@@ -20,6 +20,9 @@
     <Filter Include="RC4">
       <UniqueIdentifier>{f14b65bc-5f53-4fa1-82e7-6e9c7e6d112e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MiniFilter">
+      <UniqueIdentifier>{937e6740-dbd8-4c2d-ae0f-c96c38becf7f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="filedisk.c">
@@ -31,6 +34,9 @@
     <ClCompile Include="rc4_skey.c">
       <Filter>RC4</Filter>
     </ClCompile>
+    <ClCompile Include="MiniFilter.c">
+      <Filter>MiniFilter</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="filedisk.h">
@@ -38,6 +44,9 @@
     </ClInclude>
     <ClInclude Include="rc4.h">
       <Filter>RC4</Filter>
+    </ClInclude>
+    <ClInclude Include="MiniFilter.h">
+      <Filter>MiniFilter</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

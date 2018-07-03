@@ -26,7 +26,253 @@
 
 #include "rc4.h"			//add rc4 crypto
 
+#include "MiniFilter.h"		//add minifilter
+
+
 unsigned char * g_seedCode = "I am key";
+PFLT_FILTER g_FilterHandle;					//¹ýÂËÆ÷¾ä±ú
+
+
+#ifdef MINI_FILTER
+
+//
+//  operation registration
+//
+
+CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
+
+#if 1 // TODO - List all of the requests to filter.
+	{ IRP_MJ_CREATE,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+// 	{ IRP_MJ_CREATE_NAMED_PIPE,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_CLOSE,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_READ,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_WRITE,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+// 	{ IRP_MJ_QUERY_INFORMATION,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_SET_INFORMATION,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_QUERY_EA,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_SET_EA,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_FLUSH_BUFFERS,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_QUERY_VOLUME_INFORMATION,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_SET_VOLUME_INFORMATION,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_DIRECTORY_CONTROL,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_FILE_SYSTEM_CONTROL,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_DEVICE_CONTROL,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_INTERNAL_DEVICE_CONTROL,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_SHUTDOWN,
+// 	0,
+// 	MiniFilterPreShutdownCallback,
+// 	NULL },                               //post operations not supported
+// 
+// 	{ IRP_MJ_LOCK_CONTROL,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_CLEANUP,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_CREATE_MAILSLOT,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_QUERY_SECURITY,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_SET_SECURITY,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_QUERY_QUOTA,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_SET_QUOTA,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_PNP,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_ACQUIRE_FOR_SECTION_SYNCHRONIZATION,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_RELEASE_FOR_SECTION_SYNCHRONIZATION,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_ACQUIRE_FOR_MOD_WRITE,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_RELEASE_FOR_MOD_WRITE,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_ACQUIRE_FOR_CC_FLUSH,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_RELEASE_FOR_CC_FLUSH,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_FAST_IO_CHECK_IF_POSSIBLE,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_NETWORK_QUERY_OPEN,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_MDL_READ,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_MDL_READ_COMPLETE,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_PREPARE_MDL_WRITE,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_MDL_WRITE_COMPLETE,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_VOLUME_MOUNT,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+// 
+// 	{ IRP_MJ_VOLUME_DISMOUNT,
+// 	0,
+// 	MiniFilterCommonPreOperationCallback,
+// 	MiniFilterCommonPostOperationCallback },
+
+#endif // TODO
+
+	{ IRP_MJ_OPERATION_END }
+};
+
+//
+//  This defines what we want to filter with FltMgr
+//
+
+CONST FLT_REGISTRATION FilterRegistration = {
+
+	sizeof(FLT_REGISTRATION),         //  Size
+	FLT_REGISTRATION_VERSION,           //  Version
+	0,                                  //  Flags
+
+	NULL,                               //  Context
+	Callbacks,                          //  Operation callbacks
+
+	MiniFilterUnload,                           //  MiniFilterUnload
+
+	MiniFilterInstanceSetup,                    //  InstanceSetup
+	MiniFilterInstanceQueryTeardown,            //  InstanceQueryTeardown
+	NULL,											//  InstanceTeardownStart
+	NULL,											//  InstanceTeardownComplete
+
+	NULL,                               //  GenerateFileName
+	NULL,                               //  GenerateDestinationFileName
+	NULL                                //  NormalizeNameComponent
+
+};
+
+
+#endif // MINI_FILTER
+
+
+
 
 NTSYSAPI
 NTSTATUS
@@ -168,6 +414,23 @@ DriverEntry (
     OBJECT_ATTRIBUTES           object_attributes;
     ULONG                       n;
     USHORT                      n_created_devices;
+
+#ifdef MINI_FILTER
+
+	status = FltRegisterFilter(DriverObject, &FilterRegistration, &g_FilterHandle);		//×¢²á¹ýÂËÆ÷
+
+	if (NT_SUCCESS(status))
+	{
+		status = FltStartFiltering(g_FilterHandle);
+
+		if (NT_SUCCESS(status))
+		{
+			FltUnregisterFilter(g_FilterHandle);
+		}
+	}
+
+#endif // MINI_FILTER
+
 
     parameter_path.Length = 0;
 
@@ -1218,6 +1481,8 @@ FileDiskThread (
 
 	RC4_KEY				Key;				//rc4 key
 
+	NTSTATUS			status;				//·µ»Ø¶ÁÐ´×´Ì¬
+
     PAGED_CODE();
 
     ASSERT(Context != NULL);
@@ -1286,18 +1551,18 @@ FileDiskThread (
 				RC4_set_key(&Key, strlen(g_seedCode), g_seedCode);
 				decryptBuffer = (PUCHAR)ExAllocatePoolWithTag(PagedPool, io_stack->Parameters.Read.Length, FILE_DISK_POOL_TAG);
 
-                ZwReadFile(
-                    device_extension->file_handle,
-                    NULL,
-                    NULL,
-                    NULL,
-                    &irp->IoStatus,
-                    buffer,
-                    io_stack->Parameters.Read.Length,
-// 					&io_stack->Parameters.Read.ByteOffset,
-					&fileOffset,
-                    NULL
-                    );
+                status = ZwReadFile(
+							device_extension->file_handle,
+							NULL,
+							NULL,
+							NULL,
+							&irp->IoStatus,
+							buffer,
+							io_stack->Parameters.Read.Length,
+		// 					&io_stack->Parameters.Read.ByteOffset,
+							&fileOffset,
+							NULL
+							);
 
 				RC4(&Key,
 					io_stack->Parameters.Read.Length,
@@ -1305,8 +1570,12 @@ FileDiskThread (
 					decryptBuffer);
 
 				RtlCopyMemory(system_buffer, decryptBuffer, io_stack->Parameters.Read.Length);
-                ExFreePool(buffer);
-				ExFreePool(decryptBuffer);
+                ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+				ExFreePoolWithTag(decryptBuffer, FILE_DISK_POOL_TAG);
+
+				irp->IoStatus.Status = status;
+				irp->IoStatus.Information = io_stack->Parameters.Read.Length;
+
                 break;
 
             case IRP_MJ_WRITE:
@@ -1334,6 +1603,7 @@ FileDiskThread (
 
 				RC4_set_key(&Key, strlen(g_seedCode), g_seedCode);
 				encryptBuffer = (PUCHAR)ExAllocatePoolWithTag(PagedPool, io_stack->Parameters.Write.Length, FILE_DISK_POOL_TAG);
+				buffer = (PUCHAR)ExAllocatePoolWithTag(PagedPool, io_stack->Parameters.Write.Length, FILE_DISK_POOL_TAG);
 
 				write_address = (PUCHAR)MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority);
 
@@ -1344,28 +1614,35 @@ FileDiskThread (
 					break;
 				}
 
+				RtlCopyMemory(buffer, write_address, io_stack->Parameters.Write.Length);
+
 				RC4(&Key,
 					io_stack->Parameters.Write.Length,
-					write_address,
+					buffer,
 					encryptBuffer);
 
 // 				RtlCopyMemory(write_address, encryptBuffer, io_stack->Parameters.Write.Length);
 
 
-                ZwWriteFile(
-                    device_extension->file_handle,
-                    NULL,
-                    NULL,
-                    NULL,
-                    &irp->IoStatus,
-//                  MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority),
-					encryptBuffer,
-                    io_stack->Parameters.Write.Length,
-//                  &io_stack->Parameters.Write.ByteOffset,
-					&fileOffset,
-                    NULL
-                    );
-				ExFreePool(encryptBuffer);
+				status = ZwWriteFile(
+							device_extension->file_handle,
+							NULL,
+							NULL,
+							NULL,
+							&irp->IoStatus,
+		//                  MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority),
+							encryptBuffer,
+							io_stack->Parameters.Write.Length,
+		//                  &io_stack->Parameters.Write.ByteOffset,
+							&fileOffset,
+							NULL
+							);
+				ExFreePoolWithTag(encryptBuffer, FILE_DISK_POOL_TAG);
+				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+
+				irp->IoStatus.Status = status;
+				irp->IoStatus.Information = io_stack->Parameters.Write.Length;
+
                 break;
 
             case IRP_MJ_DEVICE_CONTROL:
