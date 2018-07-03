@@ -1,3 +1,4 @@
+#include <ntifs.h>
 #include "MiniFilter.h"
 
 extern PFLT_FILTER g_FilterHandle;					//过滤器句柄
@@ -57,6 +58,48 @@ _In_ DEVICE_TYPE VolumeDeviceType,
 _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 )
 {
+	PDEVICE_OBJECT DeviceObject;
+	NTSTATUS status;
+
+	ULONG retLen;
+	UCHAR volPropBuffer[sizeof(FLT_VOLUME_PROPERTIES) + 512];
+	PFLT_VOLUME_PROPERTIES volProp = (PFLT_VOLUME_PROPERTIES)volPropBuffer;
+	PUNICODE_STRING workingName;
+
+
+	status = FltGetDiskDeviceObject(FltObjects->Volume, &DeviceObject);
+
+	if (!NT_SUCCESS(status))
+	{
+		return STATUS_FLT_DO_NOT_ATTACH;
+	}
+	//首先判断设备类型
+	if (FILE_DEVICE_DISK == DeviceObject->DeviceType)
+	{
+		status = FltGetVolumeProperties(FltObjects->Volume,
+			volProp,
+			sizeof(volPropBuffer),
+			&retLen);
+
+
+		if (volProp->RealDeviceName.Length > 0)
+		{
+			workingName = &volProp->RealDeviceName;
+
+			//说明是我们自己创建的设备
+			if (strstr(workingName->Buffer, "\\Device\\FileDisk") > 0)
+			{
+				return STATUS_SUCCESS;
+			}
+		}
+
+	}
+	else
+	{
+		return STATUS_FLT_DO_NOT_ATTACH;
+	}
+
+
 	return STATUS_SUCCESS;
 }
 
