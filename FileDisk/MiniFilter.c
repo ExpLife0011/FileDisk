@@ -2,6 +2,7 @@
 #include "MiniFilter.h"
 
 extern PFLT_FILTER g_FilterHandle;					//过滤器句柄
+extern ULONG		g_filediskAuthority;			//权限
 
 /************************************************************************/
 /* unicodeString 转 char                                                */
@@ -19,12 +20,12 @@ BOOLEAN FDUnicodeStringToChar(PUNICODE_STRING UniName, char Name[])
 			nameptr = (PCHAR)AnsiName.Buffer;
 			//Convert into upper case and copy to buffer
 			strcpy(Name, _strupr(nameptr));
-			DbgPrint("NPUnicodeStringToChar : %s\n", Name);
+			DbgPrint("FileDisk:FDUnicodeStringToChar : %s\n", Name);
 		}
 		RtlFreeAnsiString(&AnsiName);
 	}
 	__except (EXCEPTION_EXECUTE_HANDLER) {
-		DbgPrint("FDUnicodeStringToChar EXCEPTION_EXECUTE_HANDLER\n");
+		DbgPrint("FileDisk:FDUnicodeStringToChar EXCEPTION_EXECUTE_HANDLER\n");
 		return FALSE;
 	}
 	return TRUE;
@@ -84,15 +85,40 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreCreateCallback(
 	FILE_DOES_NOT_EXIST
 	*/
 
-	//假设为只读权限，那就是只允许Fileopen
+	KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE operationDescription=%d\n", operationDescription));
 
-	if (operationDescription != FILE_OPENED)
+
+	
+	//拥有读写权限
+	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
 	{
-		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;		//磁盘写保护
+		KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE Authority: FILEDISK_WRITE_AUTHORITY\n"));
+		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	}
+
+	//拥有读权限
+	if (FlagOn(g_filediskAuthority, FILEDISK_READ_AUTHORITY))
+	{
+		KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE Authority: FILEDISK_READ_AUTHORITY\n"));
+
+		if (operationDescription != FILE_OPENED)
+		{
+			Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;		//磁盘写保护
+			Data->IoStatus.Information = 0;
+
+			KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE return STATUS_MEDIA_WRITE_PROTECTED\n"));
+			return FLT_PREOP_COMPLETE;
+		}
+	}
+
+	//禁用
+	if (g_filediskAuthority == FILEDISK_NONE_AUTHORITY)
+	{
+		KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE Authority: FILEDISK_READ_AUTHORITY\n"));
+		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
 		Data->IoStatus.Information = 0;
 		return FLT_PREOP_COMPLETE;
 	}
-
 
 	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
 }
@@ -111,6 +137,107 @@ FLT_POSTOP_CALLBACK_STATUS MiniFilterPostCreateCallback(
 }
 
 
+/************************************************************************/
+/* read前                                                             */
+/************************************************************************/
+FLT_PREOP_CALLBACK_STATUS MiniFilterPreReadCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID *CompletionContext
+	)
+{
+	//拥有读写权限
+	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
+	{
+		KdPrint(("FileDisk MiniFilter: IRP_MJ_WRITE Authority: FILEDISK_WRITE_AUTHORITY\n"));
+		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	}
+
+	//拥有读权限
+	if (FlagOn(g_filediskAuthority, FILEDISK_READ_AUTHORITY))
+	{
+		KdPrint(("FileDisk MiniFilter: IRP_MJ_WRITE Authority: FILEDISK_READ_AUTHORITY\n"));
+		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	}
+
+	//禁用
+	if (g_filediskAuthority == FILEDISK_NONE_AUTHORITY)
+	{
+		KdPrint(("FileDisk MiniFilter: IRP_MJ_WRITE Authority: FILEDISK_NONE_AUTHORITY\n"));
+		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+		Data->IoStatus.Information = 0;
+		return FLT_PREOP_COMPLETE;
+	}
+
+	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+}
+
+/************************************************************************/
+/* read后                                                             */
+/************************************************************************/
+FLT_POSTOP_CALLBACK_STATUS MiniFilterPostReadCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID CompletionContext,
+	FLT_POST_OPERATION_FLAGS Flags
+	)
+{
+	return (FLT_POSTOP_FINISHED_PROCESSING);
+}
+
+
+/************************************************************************/
+/* write前                                                             */
+/************************************************************************/
+FLT_PREOP_CALLBACK_STATUS MiniFilterPreWriteCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID *CompletionContext
+	)
+{
+	//拥有读写权限
+	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
+	{
+		KdPrint(("FileDisk MiniFilter: IRP_MJ_READ Authority: FILEDISK_WRITE_AUTHORITY\n"));
+		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	}
+
+	//拥有读权限
+	if (FlagOn(g_filediskAuthority, FILEDISK_READ_AUTHORITY))
+	{
+		KdPrint(("FileDisk MiniFilter: IRP_MJ_READ Authority: FILEDISK_READ_AUTHORITY\n"));
+		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+		Data->IoStatus.Information = 0;
+		return FLT_PREOP_COMPLETE;
+	}
+
+	//禁用
+	if ( g_filediskAuthority == FILEDISK_NONE_AUTHORITY )
+	{
+		KdPrint(("FileDisk MiniFilter: IRP_MJ_READ Authority: FILEDISK_NONE_AUTHORITY\n"));
+		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+		Data->IoStatus.Information = 0;
+		return FLT_PREOP_COMPLETE;
+	}
+
+	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+}
+
+/************************************************************************/
+/* write后                                                             */
+/************************************************************************/
+FLT_POSTOP_CALLBACK_STATUS MiniFilterPostWriteCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID CompletionContext,
+	FLT_POST_OPERATION_FLAGS Flags
+	)
+{
+	return (FLT_POSTOP_FINISHED_PROCESSING);
+}
+
+
+
 FLT_PREOP_CALLBACK_STATUS MiniFilterPreShutdownCallback(
 	PFLT_CALLBACK_DATA Data,
 	PCFLT_RELATED_OBJECTS FltObjects,
@@ -119,7 +246,6 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreShutdownCallback(
 {
 	return (FLT_PREOP_SUCCESS_NO_CALLBACK);
 }
-
 
 
 NTSTATUS
@@ -158,6 +284,9 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	{
 		return STATUS_FLT_DO_NOT_ATTACH;
 	}
+
+	KdPrint(("FileDisk: MINI_FILTER deviceTyep=%d\n"), DeviceObject->DeviceType);
+
 	//首先判断设备类型
 	if (FILE_DEVICE_DISK == DeviceObject->DeviceType)
 	{
@@ -171,11 +300,14 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 		{
 			workingName = &volProp->RealDeviceName;
 
+			KdPrint(("FileDisk: MINI_FILTER realDeviceName: %wZ\n", workingName));
+
 			if (FDUnicodeStringToChar(workingName, devicePath))
 			{
 				//说明是我们自己创建的设备
-				if (strstr(devicePath, "\\DEVICE\\FILEDISK") > 0)
+				if (strstr(devicePath, "\\DEVICE\\FILEDISK\\FILEDISK") != NULL)
 				{
+					KdPrint(("FileDisk: 绑定此设备\n"));
 					return STATUS_SUCCESS;
 				}
 			}

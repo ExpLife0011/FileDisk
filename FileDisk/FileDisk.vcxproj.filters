@@ -49,4 +49,9 @@
       <Filter>MiniFilter</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Inf Include="FileDisk.inf">
+      <Filter>Driver Files</Filter>
+    </Inf>
+  </ItemGroup>
 </Project>

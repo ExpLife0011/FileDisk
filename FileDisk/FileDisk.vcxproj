@@ -211,6 +211,9 @@
     <ClInclude Include="MiniFilter.h" />
     <ClInclude Include="rc4.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Inf Include="FileDisk.inf" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

@@ -29,8 +29,27 @@
 #include "MiniFilter.h"		//add minifilter
 
 
+#define _EN_DECRYPT_		//¿ªÆô¼Ó½âÃÜ
+#define DEENCRYPT_LENGTH	512
+
 unsigned char * g_seedCode = "I am key";
 PFLT_FILTER g_FilterHandle;					//¹ýÂËÆ÷¾ä±ú
+ULONG		g_filediskAuthority = 0x00000002;			//È¨ÏÞ
+
+
+void RC4_EnDecrypt(RC4_KEY *key, size_t len, const unsigned char *indata, unsigned char *outdata)
+{
+	int nResidualLength = len;
+	while (nResidualLength > DEENCRYPT_LENGTH)
+	{
+		RC4(key, len, indata, outdata);
+		indata += DEENCRYPT_LENGTH;
+		outdata += DEENCRYPT_LENGTH;
+		nResidualLength -= DEENCRYPT_LENGTH;
+	}
+	RC4( key, len, indata, outdata);
+}
+
 
 
 #ifdef MINI_FILTER
@@ -43,18 +62,18 @@ CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
 
 	{ IRP_MJ_CREATE,
 	0,
-	MiniFilterCommonPreOperationCallback,
-	MiniFilterCommonPostOperationCallback },
+	MiniFilterPreCreateCallback,
+	MiniFilterPostCreateCallback },
 
 	{ IRP_MJ_READ,
 	0,
-	MiniFilterCommonPreOperationCallback,
-	MiniFilterCommonPostOperationCallback },
+	MiniFilterPreReadCallback,
+	MiniFilterPostReadCallback },
 
 	{ IRP_MJ_WRITE,
 	0,
-	MiniFilterCommonPreOperationCallback,
-	MiniFilterCommonPostOperationCallback },
+	MiniFilterPreWriteCallback,
+	MiniFilterPostWriteCallback },
 
 #if 0 // TODO - List all of the requests to filter.
 	{ IRP_MJ_CREATE_NAMED_PIPE,
@@ -423,14 +442,14 @@ DriverEntry (
 	{
 		status = FltStartFiltering(g_FilterHandle);
 
-		if (NT_SUCCESS(status))
+		if (!NT_SUCCESS(status))
 		{
+			KdPrint(("MiniFilter×¢²áÊ§°Ü\n"));
 			FltUnregisterFilter(g_FilterHandle);
 		}
 	}
 
 #endif // MINI_FILTER
-
 
     parameter_path.Length = 0;
 
@@ -1564,7 +1583,7 @@ FileDiskThread (
 							NULL
 							);
 #ifdef _EN_DECRYPT_
-				RC4(&Key,
+				RC4_EnDecrypt(&Key,
 					io_stack->Parameters.Read.Length,
 					buffer,
 					decryptBuffer);
@@ -1619,7 +1638,7 @@ FileDiskThread (
 
 				RtlCopyMemory(buffer, write_address, io_stack->Parameters.Write.Length);
 
-				RC4(&Key,
+				RC4_EnDecrypt(&Key,
 					io_stack->Parameters.Write.Length,
 					buffer,
 					encryptBuffer);
@@ -1767,17 +1786,19 @@ FileDiskOpenFile (
 
     status = ZwCreateFile(
         &device_extension->file_handle,
-        device_extension->read_only ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
+		device_extension->read_only ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
         &object_attributes,
         &Irp->IoStatus,
         NULL,
         FILE_ATTRIBUTE_NORMAL,
-        device_extension->read_only ? FILE_SHARE_READ : 0,
+//         device_extension->read_only ? FILE_SHARE_READ : 0,
+		FILE_SHARE_READ,
         FILE_OPEN,
-        FILE_NON_DIRECTORY_FILE |
-        FILE_RANDOM_ACCESS |
-        FILE_NO_INTERMEDIATE_BUFFERING |
-        FILE_SYNCHRONOUS_IO_NONALERT,
+		FILE_NON_DIRECTORY_FILE |
+		FILE_RANDOM_ACCESS |
+		FILE_NO_INTERMEDIATE_BUFFERING |
+		FILE_SYNCHRONOUS_IO_NONALERT |
+		FILE_WRITE_THROUGH,
         NULL,
         0
         );

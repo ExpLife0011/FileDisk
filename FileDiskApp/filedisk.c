@@ -195,22 +195,41 @@ int FileDiskUmount(char DriveLetter)
         return -1;
     }
 
-    if (!DeviceIoControl(
-        Device,
-        FSCTL_LOCK_VOLUME,
-        NULL,
-        0,
-        NULL,
-        0,
-        &BytesReturned,
-        NULL
-        ))
-    {
-        PrintLastError(&VolumeName[4]);
-        CloseHandle(Device);
-		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_LOCK_VOLUME error, errcode: %d\n", GetLastError());
-        return -1;
-    }
+
+	if (!DeviceIoControl(
+		(HANDLE)Device,            // handle to a volume
+		(DWORD)FSCTL_DISMOUNT_VOLUME,   // dwIoControlCode
+		NULL,                        // lpInBuffer
+		0,                           // nInBufferSize
+		NULL,                        // lpOutBuffer
+		0,                           // nOutBufferSize
+		&BytesReturned,   // number of bytes returned
+		NULL  // OVERLAPPED structure
+		))
+	{
+		PrintLastError(&VolumeName[4]);
+		CloseHandle(Device);
+		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_DISMOUNT_VOLUME error, errcode: %d\n", GetLastError());
+		return -1;
+	}
+
+
+//     if (!DeviceIoControl(
+//         Device,
+//         FSCTL_LOCK_VOLUME,
+//         NULL,
+//         0,
+//         NULL,
+//         0,
+//         &BytesReturned,
+//         NULL
+//         ))
+//     {
+//         PrintLastError(&VolumeName[4]);
+//         CloseHandle(Device);
+// 		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_LOCK_VOLUME error, errcode: %d\n", GetLastError());
+//         return -1;
+//     }
 
     if (!DeviceIoControl(
         Device,
@@ -229,39 +248,39 @@ int FileDiskUmount(char DriveLetter)
         return -1;
     }
 
-    if (!DeviceIoControl(
-        Device,
-        FSCTL_DISMOUNT_VOLUME,
-        NULL,
-        0,
-        NULL,
-        0,
-        &BytesReturned,
-        NULL
-        ))
-    {
-        PrintLastError(&VolumeName[4]);
-        CloseHandle(Device);
-		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_DISMOUNT_VOLUME error, errcode: %d\n", GetLastError());
-		return -1;
-    }
+//     if (!DeviceIoControl(
+//         Device,
+//         FSCTL_DISMOUNT_VOLUME,
+//         NULL,
+//         0,
+//         NULL,
+//         0,
+//         &BytesReturned,
+//         NULL
+//         ))
+//     {
+//         PrintLastError(&VolumeName[4]);
+//         CloseHandle(Device);
+// 		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_DISMOUNT_VOLUME error, errcode: %d\n", GetLastError());
+// 		return -1;
+//     }
 
-    if (!DeviceIoControl(
-        Device,
-        FSCTL_UNLOCK_VOLUME,
-        NULL,
-        0,
-        NULL,
-        0,
-        &BytesReturned,
-        NULL
-        ))
-    {
-        PrintLastError(&VolumeName[4]);
-        CloseHandle(Device);
-		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_UNLOCK_VOLUME error, errcode: %d\n", GetLastError());
-		return -1;
-    }
+//     if (!DeviceIoControl(
+//         Device,
+//         FSCTL_UNLOCK_VOLUME,
+//         NULL,
+//         0,
+//         NULL,
+//         0,
+//         &BytesReturned,
+//         NULL
+//         ))
+//     {
+//         PrintLastError(&VolumeName[4]);
+//         CloseHandle(Device);
+// 		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_UNLOCK_VOLUME error, errcode: %d\n", GetLastError());
+// 		return -1;
+//     }
 
     CloseHandle(Device);
 

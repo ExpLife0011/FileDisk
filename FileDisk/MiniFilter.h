@@ -7,6 +7,11 @@
 
 #define MINI_FILTER
 
+#define FILEDISK_WRITE_AUTHORITY	0x00000002			//写权限，包括读
+#define	FILEDISK_READ_AUTHORITY		0x00000001			//读权限
+#define FILEDISK_NONE_AUTHORITY		0x00000000			//无权限，禁用
+
+
 FLT_PREOP_CALLBACK_STATUS MiniFilterCommonPreOperationCallback(
 	PFLT_CALLBACK_DATA Data,
 	PCFLT_RELATED_OBJECTS FltObjects,
@@ -40,6 +45,31 @@ FLT_POSTOP_CALLBACK_STATUS MiniFilterPostCreateCallback(
 	FLT_POST_OPERATION_FLAGS Flags
 	);
 
+FLT_PREOP_CALLBACK_STATUS MiniFilterPreReadCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID *CompletionContext
+	);
+
+FLT_POSTOP_CALLBACK_STATUS MiniFilterPostReadCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID CompletionContext,
+	FLT_POST_OPERATION_FLAGS Flags
+	);
+
+FLT_PREOP_CALLBACK_STATUS MiniFilterPreWriteCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID *CompletionContext
+	);
+
+FLT_POSTOP_CALLBACK_STATUS MiniFilterPostWriteCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID CompletionContext,
+	FLT_POST_OPERATION_FLAGS Flags
+	);
 
 NTSTATUS
 MiniFilterInstanceSetup(
