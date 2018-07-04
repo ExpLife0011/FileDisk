@@ -27,6 +27,20 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreShutdownCallback(
 	PVOID *CompletionContext
 	);
 
+FLT_PREOP_CALLBACK_STATUS MiniFilterPreCreateCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID *CompletionContext
+	);
+
+FLT_POSTOP_CALLBACK_STATUS MiniFilterPostCreateCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID CompletionContext,
+	FLT_POST_OPERATION_FLAGS Flags
+	);
+
+
 NTSTATUS
 MiniFilterInstanceSetup(
 _In_ PCFLT_RELATED_OBJECTS FltObjects,

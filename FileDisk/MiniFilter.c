@@ -4,6 +4,34 @@
 extern PFLT_FILTER g_FilterHandle;					//过滤器句柄
 
 /************************************************************************/
+/* unicodeString 转 char                                                */
+/************************************************************************/
+BOOLEAN FDUnicodeStringToChar(PUNICODE_STRING UniName, char Name[])
+{
+	ANSI_STRING	AnsiName;
+	NTSTATUS	ntstatus;
+	char*		nameptr;
+
+	__try {
+		ntstatus = RtlUnicodeStringToAnsiString(&AnsiName, UniName, TRUE);
+
+		if (AnsiName.Length < 260) {
+			nameptr = (PCHAR)AnsiName.Buffer;
+			//Convert into upper case and copy to buffer
+			strcpy(Name, _strupr(nameptr));
+			DbgPrint("NPUnicodeStringToChar : %s\n", Name);
+		}
+		RtlFreeAnsiString(&AnsiName);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		DbgPrint("FDUnicodeStringToChar EXCEPTION_EXECUTE_HANDLER\n");
+		return FALSE;
+	}
+	return TRUE;
+}
+
+
+/************************************************************************/
 /* 通用操作前                                                            */
 /************************************************************************/
 FLT_PREOP_CALLBACK_STATUS MiniFilterCommonPreOperationCallback(
@@ -27,6 +55,61 @@ FLT_POSTOP_CALLBACK_STATUS MiniFilterCommonPostOperationCallback(
 {
 	return (FLT_POSTOP_FINISHED_PROCESSING);
 }
+
+
+/************************************************************************/
+/* Create前                                                             */
+/************************************************************************/
+FLT_PREOP_CALLBACK_STATUS MiniFilterPreCreateCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID *CompletionContext
+	)
+{
+
+	ULONG operationDescription;
+
+	operationDescription = ((Data->Iopb->Parameters.Create.Options >> 24) & 0x000000FF);
+	/*
+	FILE_CREATED
+
+	FILE_OPENED
+
+	FILE_OVERWRITTEN
+
+	FILE_SUPERSEDED
+
+	FILE_EXISTS
+
+	FILE_DOES_NOT_EXIST
+	*/
+
+	//假设为只读权限，那就是只允许Fileopen
+
+	if (operationDescription != FILE_OPENED)
+	{
+		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;		//磁盘写保护
+		Data->IoStatus.Information = 0;
+		return FLT_PREOP_COMPLETE;
+	}
+
+
+	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+}
+
+/************************************************************************/
+/* Create后                                                             */
+/************************************************************************/
+FLT_POSTOP_CALLBACK_STATUS MiniFilterPostCreateCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID CompletionContext,
+	FLT_POST_OPERATION_FLAGS Flags
+	)
+{
+	return (FLT_POSTOP_FINISHED_PROCESSING);
+}
+
 
 FLT_PREOP_CALLBACK_STATUS MiniFilterPreShutdownCallback(
 	PFLT_CALLBACK_DATA Data,
@@ -66,6 +149,8 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	PFLT_VOLUME_PROPERTIES volProp = (PFLT_VOLUME_PROPERTIES)volPropBuffer;
 	PUNICODE_STRING workingName;
 
+	char devicePath[260] = { 0 };
+
 
 	status = FltGetDiskDeviceObject(FltObjects->Volume, &DeviceObject);
 
@@ -86,11 +171,15 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 		{
 			workingName = &volProp->RealDeviceName;
 
-			//说明是我们自己创建的设备
-			if (strstr(workingName->Buffer, "\\Device\\FileDisk") > 0)
+			if (FDUnicodeStringToChar(workingName, devicePath))
 			{
-				return STATUS_SUCCESS;
+				//说明是我们自己创建的设备
+				if (strstr(devicePath, "\\DEVICE\\FILEDISK") > 0)
+				{
+					return STATUS_SUCCESS;
+				}
 			}
+
 		}
 
 	}
@@ -100,7 +189,7 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	}
 
 
-	return STATUS_SUCCESS;
+	return STATUS_FLT_DO_NOT_ATTACH;
 }
 
 

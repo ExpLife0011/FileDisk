@@ -41,21 +41,10 @@ PFLT_FILTER g_FilterHandle;					//过滤器句柄
 
 CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
 
-#if 1 // TODO - List all of the requests to filter.
 	{ IRP_MJ_CREATE,
 	0,
 	MiniFilterCommonPreOperationCallback,
 	MiniFilterCommonPostOperationCallback },
-
-// 	{ IRP_MJ_CREATE_NAMED_PIPE,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_CLOSE,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
 
 	{ IRP_MJ_READ,
 	0,
@@ -67,175 +56,186 @@ CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
 	MiniFilterCommonPreOperationCallback,
 	MiniFilterCommonPostOperationCallback },
 
-// 	{ IRP_MJ_QUERY_INFORMATION,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_SET_INFORMATION,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_QUERY_EA,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_SET_EA,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_FLUSH_BUFFERS,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_QUERY_VOLUME_INFORMATION,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_SET_VOLUME_INFORMATION,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_DIRECTORY_CONTROL,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_FILE_SYSTEM_CONTROL,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_DEVICE_CONTROL,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_INTERNAL_DEVICE_CONTROL,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_SHUTDOWN,
-// 	0,
-// 	MiniFilterPreShutdownCallback,
-// 	NULL },                               //post operations not supported
-// 
-// 	{ IRP_MJ_LOCK_CONTROL,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_CLEANUP,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_CREATE_MAILSLOT,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_QUERY_SECURITY,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_SET_SECURITY,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_QUERY_QUOTA,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_SET_QUOTA,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_PNP,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_ACQUIRE_FOR_SECTION_SYNCHRONIZATION,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_RELEASE_FOR_SECTION_SYNCHRONIZATION,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_ACQUIRE_FOR_MOD_WRITE,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_RELEASE_FOR_MOD_WRITE,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_ACQUIRE_FOR_CC_FLUSH,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_RELEASE_FOR_CC_FLUSH,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_FAST_IO_CHECK_IF_POSSIBLE,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_NETWORK_QUERY_OPEN,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_MDL_READ,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_MDL_READ_COMPLETE,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_PREPARE_MDL_WRITE,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_MDL_WRITE_COMPLETE,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_VOLUME_MOUNT,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
-// 
-// 	{ IRP_MJ_VOLUME_DISMOUNT,
-// 	0,
-// 	MiniFilterCommonPreOperationCallback,
-// 	MiniFilterCommonPostOperationCallback },
+#if 0 // TODO - List all of the requests to filter.
+	{ IRP_MJ_CREATE_NAMED_PIPE,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_CLOSE,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_QUERY_INFORMATION,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_SET_INFORMATION,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_QUERY_EA,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_SET_EA,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_FLUSH_BUFFERS,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_QUERY_VOLUME_INFORMATION,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_SET_VOLUME_INFORMATION,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_DIRECTORY_CONTROL,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_FILE_SYSTEM_CONTROL,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_DEVICE_CONTROL,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_INTERNAL_DEVICE_CONTROL,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_SHUTDOWN,
+	0,
+	MiniFilterPreShutdownCallback,
+	NULL },                               //post operations not supported
+
+	{ IRP_MJ_LOCK_CONTROL,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_CLEANUP,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_CREATE_MAILSLOT,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_QUERY_SECURITY,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_SET_SECURITY,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_QUERY_QUOTA,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_SET_QUOTA,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_PNP,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_ACQUIRE_FOR_SECTION_SYNCHRONIZATION,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_RELEASE_FOR_SECTION_SYNCHRONIZATION,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_ACQUIRE_FOR_MOD_WRITE,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_RELEASE_FOR_MOD_WRITE,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_ACQUIRE_FOR_CC_FLUSH,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_RELEASE_FOR_CC_FLUSH,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_FAST_IO_CHECK_IF_POSSIBLE,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_NETWORK_QUERY_OPEN,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_MDL_READ,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_MDL_READ_COMPLETE,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_PREPARE_MDL_WRITE,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_MDL_WRITE_COMPLETE,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_VOLUME_MOUNT,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
+
+	{ IRP_MJ_VOLUME_DISMOUNT,
+	0,
+	MiniFilterCommonPreOperationCallback,
+	MiniFilterCommonPostOperationCallback },
 
 #endif // TODO
 
@@ -1542,7 +1542,7 @@ FileDiskThread (
 				/************************************************************************/
 				fileOffset.QuadPart = io_stack->Parameters.Read.ByteOffset.QuadPart + device_extension->file_offset.QuadPart;
 				KdPrint(("filedisk: read fileoffset: %lld\n", fileOffset.QuadPart));
-
+#ifdef _EN_DECRYPT_
 				/************************************************************************/
 				/* 初始化rc4 key                                                         */
 				/* 分配用于存储明文的空间													*/
@@ -1550,7 +1550,7 @@ FileDiskThread (
 
 				RC4_set_key(&Key, strlen(g_seedCode), g_seedCode);
 				decryptBuffer = (PUCHAR)ExAllocatePoolWithTag(PagedPool, io_stack->Parameters.Read.Length, FILE_DISK_POOL_TAG);
-
+#endif
                 status = ZwReadFile(
 							device_extension->file_handle,
 							NULL,
@@ -1563,15 +1563,18 @@ FileDiskThread (
 							&fileOffset,
 							NULL
 							);
-
+#ifdef _EN_DECRYPT_
 				RC4(&Key,
 					io_stack->Parameters.Read.Length,
 					buffer,
 					decryptBuffer);
-
 				RtlCopyMemory(system_buffer, decryptBuffer, io_stack->Parameters.Read.Length);
-                ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
 				ExFreePoolWithTag(decryptBuffer, FILE_DISK_POOL_TAG);
+#else
+				RtlCopyMemory(system_buffer, buffer, io_stack->Parameters.Read.Length);
+				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+#endif
 
 				irp->IoStatus.Status = status;
 				irp->IoStatus.Information = io_stack->Parameters.Read.Length;
@@ -1595,7 +1598,7 @@ FileDiskThread (
 				fileOffset.QuadPart = io_stack->Parameters.Write.ByteOffset.QuadPart + device_extension->file_offset.QuadPart;
 
 				KdPrint(("filedisk: write fileoffset: %lld\n", fileOffset.QuadPart));
-
+#ifdef _EN_DECRYPT_
 				/************************************************************************/
 				/* 初始化rc4 key                                                         */
 				/* 分配用于存储密文的空间													*/
@@ -1621,24 +1624,39 @@ FileDiskThread (
 					buffer,
 					encryptBuffer);
 
-// 				RtlCopyMemory(write_address, encryptBuffer, io_stack->Parameters.Write.Length);
+				// 				RtlCopyMemory(write_address, encryptBuffer, io_stack->Parameters.Write.Length);
 
 
 				status = ZwWriteFile(
-							device_extension->file_handle,
-							NULL,
-							NULL,
-							NULL,
-							&irp->IoStatus,
-		//                  MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority),
-							encryptBuffer,
-							io_stack->Parameters.Write.Length,
-		//                  &io_stack->Parameters.Write.ByteOffset,
-							&fileOffset,
-							NULL
-							);
+					device_extension->file_handle,
+					NULL,
+					NULL,
+					NULL,
+					&irp->IoStatus,
+					//                  MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority),
+					encryptBuffer,
+					io_stack->Parameters.Write.Length,
+					//                  &io_stack->Parameters.Write.ByteOffset,
+					&fileOffset,
+					NULL
+					);
 				ExFreePoolWithTag(encryptBuffer, FILE_DISK_POOL_TAG);
 				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+#else
+				status = ZwWriteFile(
+					device_extension->file_handle,
+					NULL,
+					NULL,
+					NULL,
+					&irp->IoStatus,
+					MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority),
+					io_stack->Parameters.Write.Length,
+					&fileOffset,
+					NULL
+					);
+#endif // _EN_DECRYPT_
+
+
 
 				irp->IoStatus.Status = status;
 				irp->IoStatus.Information = io_stack->Parameters.Write.Length;
