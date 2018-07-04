@@ -31,25 +31,48 @@
 
 #define _EN_DECRYPT_		//开启加解密
 #define DEENCRYPT_LENGTH	512
+#define ENCRYPTKEY_LEN       256
+#define HEADER_SUBTYPE_FILEDISK	       "PVCLOCK"        //定义内部信息头标识
+#define FILEHEADER_SUBTYPE_LEN			8
 
-unsigned char * g_seedCode = "I am key";
+typedef unsigned char BYTE;
+
+// unsigned char * g_seedCode = "I am key";
 PFLT_FILTER g_FilterHandle;					//过滤器句柄
 ULONG		g_filediskAuthority = 0x00000002;			//权限
 
+BYTE        g_DefaultKey[ENCRYPTKEY_LEN];
 
-void RC4_EnDecrypt(RC4_KEY *key, size_t len, const unsigned char *indata, unsigned char *outdata)
+
+
+
+// void RC4_EnDecrypt(RC4_KEY *key, size_t len, const unsigned char *indata, unsigned char *outdata)
+// {
+// 	int nResidualLength = len;
+// 	while (nResidualLength > DEENCRYPT_LENGTH)
+// 	{
+// 		RC4(key, DEENCRYPT_LENGTH, indata, outdata);
+// 		indata += DEENCRYPT_LENGTH;
+// 		outdata += DEENCRYPT_LENGTH;
+// 		nResidualLength -= DEENCRYPT_LENGTH;
+// 	}
+// 	RC4(key, nResidualLength, indata, outdata);
+// }
+
+
+BOOLEAN
+BuildEncryptKey(
+IN BYTE ByteKey[ENCRYPTKEY_LEN]
+)
 {
-	int nResidualLength = len;
-	while (nResidualLength > DEENCRYPT_LENGTH)
-	{
-		RC4(key, len, indata, outdata);
-		indata += DEENCRYPT_LENGTH;
-		outdata += DEENCRYPT_LENGTH;
-		nResidualLength -= DEENCRYPT_LENGTH;
-	}
-	RC4( key, len, indata, outdata);
+	ULONG i = 0;
+	RtlZeroMemory(ByteKey, ENCRYPTKEY_LEN);
+	RtlCopyMemory(ByteKey, HEADER_SUBTYPE_FILEDISK, FILEHEADER_SUBTYPE_LEN);
+	ByteKey[FILEHEADER_SUBTYPE_LEN - 1] = '\0';
+	for (i = 0; i < FILEHEADER_SUBTYPE_LEN; i++)
+		ByteKey[i] ^= i;
+	return TRUE;
 }
-
 
 
 #ifdef MINI_FILTER
@@ -450,6 +473,9 @@ DriverEntry (
 	}
 
 #endif // MINI_FILTER
+
+	//初始化密钥
+	BuildEncryptKey(g_DefaultKey);
 
     parameter_path.Length = 0;
 
@@ -1498,7 +1524,7 @@ FileDiskThread (
 
 	LARGE_INTEGER		fileOffset;			//读写文件偏移 add by chengheming
 
-	RC4_KEY				Key;				//rc4 key
+// 	RC4_KEY				Key;				//rc4 key
 
 	NTSTATUS			status;				//返回读写状态
 
@@ -1567,7 +1593,7 @@ FileDiskThread (
 				/* 分配用于存储明文的空间													*/
 				/************************************************************************/
 
-				RC4_set_key(&Key, strlen(g_seedCode), g_seedCode);
+// 				RC4_set_key(&Key, strlen(g_seedCode), g_seedCode);
 				decryptBuffer = (PUCHAR)ExAllocatePoolWithTag(PagedPool, io_stack->Parameters.Read.Length, FILE_DISK_POOL_TAG);
 #endif
                 status = ZwReadFile(
@@ -1583,11 +1609,17 @@ FileDiskThread (
 							NULL
 							);
 #ifdef _EN_DECRYPT_
-				RC4_EnDecrypt(&Key,
+// 				RC4_EnDecrypt(&Key,
+// 					io_stack->Parameters.Read.Length,
+// 					buffer,
+// 					decryptBuffer);
+
+				RC4_EnDecrypt(buffer,
 					io_stack->Parameters.Read.Length,
-					buffer,
-					decryptBuffer);
-				RtlCopyMemory(system_buffer, decryptBuffer, io_stack->Parameters.Read.Length);
+					g_DefaultKey,
+					ENCRYPTKEY_LEN);
+
+				RtlCopyMemory(system_buffer, buffer, io_stack->Parameters.Read.Length);
 				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
 				ExFreePoolWithTag(decryptBuffer, FILE_DISK_POOL_TAG);
 #else
@@ -1623,7 +1655,7 @@ FileDiskThread (
 				/* 分配用于存储密文的空间													*/
 				/************************************************************************/
 
-				RC4_set_key(&Key, strlen(g_seedCode), g_seedCode);
+// 				RC4_set_key(&Key, strlen(g_seedCode), g_seedCode);
 				encryptBuffer = (PUCHAR)ExAllocatePoolWithTag(PagedPool, io_stack->Parameters.Write.Length, FILE_DISK_POOL_TAG);
 				buffer = (PUCHAR)ExAllocatePoolWithTag(PagedPool, io_stack->Parameters.Write.Length, FILE_DISK_POOL_TAG);
 
@@ -1638,13 +1670,18 @@ FileDiskThread (
 
 				RtlCopyMemory(buffer, write_address, io_stack->Parameters.Write.Length);
 
-				RC4_EnDecrypt(&Key,
-					io_stack->Parameters.Write.Length,
-					buffer,
-					encryptBuffer);
+// 				RC4_EnDecrypt(&Key,
+// 					io_stack->Parameters.Write.Length,
+// 					buffer,
+// 					encryptBuffer);
 
 				// 				RtlCopyMemory(write_address, encryptBuffer, io_stack->Parameters.Write.Length);
 
+
+				RC4_EnDecrypt(buffer,
+					io_stack->Parameters.Write.Length,
+					g_DefaultKey,
+					ENCRYPTKEY_LEN);
 
 				status = ZwWriteFile(
 					device_extension->file_handle,
@@ -1653,7 +1690,7 @@ FileDiskThread (
 					NULL,
 					&irp->IoStatus,
 					//                  MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority),
-					encryptBuffer,
+					buffer,
 					io_stack->Parameters.Write.Length,
 					//                  &io_stack->Parameters.Write.ByteOffset,
 					&fileOffset,

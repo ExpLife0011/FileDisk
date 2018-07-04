@@ -56,7 +56,7 @@
  * [including the GNU Public Licence.]
  */
 
-#include "rc4.h"
+#include "rc4_old.h"
 
 const char RC4_version[] = "RC4" OPENSSL_VERSION_PTEXT;
 

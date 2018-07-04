@@ -28,25 +28,31 @@
     <ClCompile Include="filedisk.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="rc4_enc.c">
-      <Filter>RC4</Filter>
-    </ClCompile>
-    <ClCompile Include="rc4_skey.c">
-      <Filter>RC4</Filter>
-    </ClCompile>
     <ClCompile Include="MiniFilter.c">
       <Filter>MiniFilter</Filter>
+    </ClCompile>
+    <ClCompile Include="rc4_enc_old.c">
+      <Filter>RC4</Filter>
+    </ClCompile>
+    <ClCompile Include="rc4_skey_old.c">
+      <Filter>RC4</Filter>
+    </ClCompile>
+    <ClCompile Include="rc4.c">
+      <Filter>RC4</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="filedisk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="rc4.h">
-      <Filter>RC4</Filter>
-    </ClInclude>
     <ClInclude Include="MiniFilter.h">
       <Filter>MiniFilter</Filter>
+    </ClInclude>
+    <ClInclude Include="rc4_old.h">
+      <Filter>RC4</Filter>
+    </ClInclude>
+    <ClInclude Include="rc4.h">
+      <Filter>RC4</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

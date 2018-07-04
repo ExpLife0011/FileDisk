@@ -203,13 +203,15 @@
   <ItemGroup>
     <ClCompile Include="filedisk.c" />
     <ClCompile Include="MiniFilter.c" />
-    <ClCompile Include="rc4_enc.c" />
-    <ClCompile Include="rc4_skey.c" />
+    <ClCompile Include="rc4.c" />
+    <ClCompile Include="rc4_enc_old.c" />
+    <ClCompile Include="rc4_skey_old.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="filedisk.h" />
     <ClInclude Include="MiniFilter.h" />
     <ClInclude Include="rc4.h" />
+    <ClInclude Include="rc4_old.h" />
   </ItemGroup>
   <ItemGroup>
     <Inf Include="FileDisk.inf" />
