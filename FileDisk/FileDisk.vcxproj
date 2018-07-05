@@ -202,6 +202,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="filedisk.c" />
+    <ClCompile Include="function.c" />
     <ClCompile Include="MiniFilter.c" />
     <ClCompile Include="rc4.c" />
     <ClCompile Include="rc4_enc_old.c" />
@@ -209,6 +210,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="filedisk.h" />
+    <ClInclude Include="function.h" />
     <ClInclude Include="MiniFilter.h" />
     <ClInclude Include="rc4.h" />
     <ClInclude Include="rc4_old.h" />

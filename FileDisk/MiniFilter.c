@@ -1,5 +1,6 @@
 #include <ntifs.h>
 #include "MiniFilter.h"
+#include "function.h"
 
 extern PFLT_FILTER g_FilterHandle;					//过滤器句柄
 extern ULONG		g_filediskAuthority;			//权限
@@ -269,6 +270,7 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 {
 	PDEVICE_OBJECT DeviceObject;
 	NTSTATUS status;
+	BYTE busType;
 
 	ULONG retLen;
 	UCHAR volPropBuffer[sizeof(FLT_VOLUME_PROPERTIES) + 512];
@@ -286,6 +288,18 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	}
 
 	KdPrint(("FileDisk: MINI_FILTER deviceTyep=%d\n"), DeviceObject->DeviceType);
+
+	/************************************************************************/
+	/* 判断是否有U盘插入                                                      */
+	
+	GetDeviceBusType(DeviceObject, &busType);
+	if (BusTypeUsb == busType)
+	{
+		//有U盘插入
+		KdPrint(("FileDisk: MiniFilter instance 有U盘插入\n"));
+	}
+	
+	/************************************************************************/
 
 	//首先判断设备类型
 	if (FILE_DEVICE_DISK == DeviceObject->DeviceType)

@@ -457,6 +457,10 @@ DriverEntry (
     ULONG                       n;
     USHORT                      n_created_devices;
 
+	PSECURITY_DESCRIPTOR		miniFltSd;
+	OBJECT_ATTRIBUTES			miniFltOa;
+
+
 #ifdef MINI_FILTER
 
 	status = FltRegisterFilter(DriverObject, &FilterRegistration, &g_FilterHandle);		//注册过滤器
@@ -471,6 +475,20 @@ DriverEntry (
 			FltUnregisterFilter(g_FilterHandle);
 		}
 	}
+
+
+	/************************************************************************/
+	/* 建立minifilter通信端口                                                */
+	/************************************************************************/
+
+	status = FltBuildDefaultSecurityDescriptor(&miniFltSd, FLT_PORT_ALL_ACCESS);
+	if (!NT_SUCCESS(status))
+	{
+		KdPrint(("FileDisk: MiniFilter FltBuildDefaultSecurityDescriptor fail, errcode:%08x", status));
+	}
+
+// 	RtlInitUnicodeString(&)
+
 
 #endif // MINI_FILTER
 

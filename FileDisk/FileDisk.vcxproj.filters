@@ -40,6 +40,9 @@
     <ClCompile Include="rc4.c">
       <Filter>RC4</Filter>
     </ClCompile>
+    <ClCompile Include="function.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="filedisk.h">
@@ -53,6 +56,9 @@
     </ClInclude>
     <ClInclude Include="rc4.h">
       <Filter>RC4</Filter>
+    </ClInclude>
+    <ClInclude Include="function.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
