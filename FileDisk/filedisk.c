@@ -35,10 +35,14 @@
 #define HEADER_SUBTYPE_FILEDISK	       "PVCLOCK"        //定义内部信息头标识
 #define FILEHEADER_SUBTYPE_LEN			8
 
+#define MINISPY_PORT_NAME			   L"\\NPMiniPort"
+
 typedef unsigned char BYTE;
 
 // unsigned char * g_seedCode = "I am key";
 PFLT_FILTER g_FilterHandle;					//过滤器句柄
+PFLT_PORT 	g_ServerPort;
+PFLT_PORT 	g_ClientPort;
 ULONG		g_filediskAuthority = 0x00000002;			//权限
 
 BYTE        g_DefaultKey[ENCRYPTKEY_LEN];
@@ -440,6 +444,60 @@ FileDiskAdjustPrivilege (
     IN BOOLEAN          Enable
 );
 
+
+NTSTATUS
+FDMiniConnect(
+__in PFLT_PORT ClientPort,
+__in PVOID ServerPortCookie,
+__in_bcount(SizeOfContext) PVOID ConnectionContext,
+__in ULONG SizeOfContext,
+__deref_out_opt PVOID *ConnectionCookie
+)
+{
+	DbgPrint("[mini-filter] NPMiniConnect");
+	PAGED_CODE();
+
+	UNREFERENCED_PARAMETER(ServerPortCookie);
+	UNREFERENCED_PARAMETER(ConnectionContext);
+	UNREFERENCED_PARAMETER(SizeOfContext);
+	UNREFERENCED_PARAMETER(ConnectionCookie);
+
+	ASSERT(g_ClientPort == NULL);
+	g_ClientPort = ClientPort;
+	return STATUS_SUCCESS;
+}
+
+
+VOID
+FDMiniDisconnect(
+__in_opt PVOID ConnectionCookie
+)
+{
+	PAGED_CODE();
+	UNREFERENCED_PARAMETER(ConnectionCookie);
+	DbgPrint("[mini-filter] NPMiniDisconnect");
+
+	//  Close our handle
+	FltCloseClientPort(g_FilterHandle, &g_ClientPort);
+}
+
+NTSTATUS
+FDMiniMessage(
+__in PVOID ConnectionCookie,
+__in_bcount_opt(InputBufferSize) PVOID InputBuffer,
+__in ULONG InputBufferSize,
+__out_bcount_part_opt(OutputBufferSize, *ReturnOutputBufferLength) PVOID OutputBuffer,
+__in ULONG OutputBufferSize,
+__out PULONG ReturnOutputBufferLength
+)
+{
+
+	NTSTATUS status = STATUS_SUCCESS;
+
+	return status;
+}
+
+
 #pragma code_seg("INIT")
 
 NTSTATUS
@@ -459,6 +517,7 @@ DriverEntry (
 
 	PSECURITY_DESCRIPTOR		miniFltSd;
 	OBJECT_ATTRIBUTES			miniFltOa;
+	UNICODE_STRING				uniString;
 
 
 #ifdef MINI_FILTER
@@ -487,7 +546,33 @@ DriverEntry (
 		KdPrint(("FileDisk: MiniFilter FltBuildDefaultSecurityDescriptor fail, errcode:%08x", status));
 	}
 
-// 	RtlInitUnicodeString(&)
+	RtlInitUnicodeString(&uniString, MINISPY_PORT_NAME);
+
+	InitializeObjectAttributes(&miniFltOa,
+		&uniString,
+		OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE,
+		NULL,
+		miniFltSd);
+
+	status = FltCreateCommunicationPort(g_FilterHandle,
+		&g_ServerPort,
+		&miniFltOa,
+		NULL,
+		FDMiniConnect,
+		FDMiniDisconnect,
+		FDMiniMessage,
+		1);
+
+	if (!NT_SUCCESS(status)) {
+
+		if (NULL != g_ServerPort) {
+			FltCloseCommunicationPort(g_ServerPort);
+		}
+
+		if (NULL != g_FilterHandle) {
+			FltUnregisterFilter(g_FilterHandle);
+		}
+	}
 
 
 #endif // MINI_FILTER

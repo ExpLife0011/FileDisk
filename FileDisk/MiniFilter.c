@@ -5,6 +5,7 @@
 extern PFLT_FILTER g_FilterHandle;					//过滤器句柄
 extern ULONG		g_filediskAuthority;			//权限
 
+
 /************************************************************************/
 /* unicodeString 转 char                                                */
 /************************************************************************/
@@ -42,6 +43,9 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterCommonPreOperationCallback(
 	PVOID *CompletionContext
 	)
 {
+	UNREFERENCED_PARAMETER(Data);
+	UNREFERENCED_PARAMETER(FltObjects);
+	UNREFERENCED_PARAMETER(CompletionContext);
 	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
 }
 
@@ -55,6 +59,10 @@ FLT_POSTOP_CALLBACK_STATUS MiniFilterCommonPostOperationCallback(
 	FLT_POST_OPERATION_FLAGS Flags
 	)
 {
+	UNREFERENCED_PARAMETER(Data);
+	UNREFERENCED_PARAMETER(FltObjects);
+	UNREFERENCED_PARAMETER(CompletionContext);
+	UNREFERENCED_PARAMETER(Flags);
 	return (FLT_POSTOP_FINISHED_PROCESSING);
 }
 
@@ -134,6 +142,10 @@ FLT_POSTOP_CALLBACK_STATUS MiniFilterPostCreateCallback(
 	FLT_POST_OPERATION_FLAGS Flags
 	)
 {
+	UNREFERENCED_PARAMETER(Data);
+	UNREFERENCED_PARAMETER(FltObjects);
+	UNREFERENCED_PARAMETER(CompletionContext);
+	UNREFERENCED_PARAMETER(Flags);
 	return (FLT_POSTOP_FINISHED_PROCESSING);
 }
 
@@ -183,6 +195,10 @@ FLT_POSTOP_CALLBACK_STATUS MiniFilterPostReadCallback(
 	FLT_POST_OPERATION_FLAGS Flags
 	)
 {
+	UNREFERENCED_PARAMETER(Data);
+	UNREFERENCED_PARAMETER(FltObjects);
+	UNREFERENCED_PARAMETER(CompletionContext);
+	UNREFERENCED_PARAMETER(Flags);
 	return (FLT_POSTOP_FINISHED_PROCESSING);
 }
 
@@ -234,6 +250,10 @@ FLT_POSTOP_CALLBACK_STATUS MiniFilterPostWriteCallback(
 	FLT_POST_OPERATION_FLAGS Flags
 	)
 {
+	UNREFERENCED_PARAMETER(Data);
+	UNREFERENCED_PARAMETER(FltObjects);
+	UNREFERENCED_PARAMETER(CompletionContext);
+	UNREFERENCED_PARAMETER(Flags);
 	return (FLT_POSTOP_FINISHED_PROCESSING);
 }
 
@@ -347,3 +367,4 @@ _In_ FLT_INSTANCE_QUERY_TEARDOWN_FLAGS Flags
 {
 	return STATUS_SUCCESS;
 }
+
