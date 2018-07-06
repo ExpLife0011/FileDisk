@@ -5,6 +5,65 @@
 
 HANDLE g_hPort = INVALID_HANDLE_VALUE;
 
+/************************************************************************/
+/* ¼à¿ØÊÇ·ñÓÐUÅÌ²åÈë                                                      */
+/************************************************************************/
+DWORD MessageWorker(IN LPVOID pParam)
+{
+
+	HRESULT                          hr = S_OK;
+	PDVCLOCK_NOTIFICATION            notification = NULL;
+	PDVCLOCK_NOTIFICATION__MESSAGE   message = NULL;
+	DVCLOCK__REPLY_MESSAGE           replyMessage = { 0 };
+
+	message = (PDVCLOCK_NOTIFICATION__MESSAGE)malloc(sizeof(DVCLOCK_NOTIFICATION__MESSAGE));
+	if (NULL == message)
+		return 0x0L;
+
+	while (TRUE)
+	{
+		memset(&(message->Notification), 0, sizeof(message->Notification));
+		memset(&message->Ovlp, 0, sizeof(OVERLAPPED));
+
+		//
+		//  Request messages from the filter driver.
+		//
+
+		hr = FilterGetMessage(
+			g_hPort,
+			&message->MessageHeader,
+			FIELD_OFFSET(DVCLOCK_NOTIFICATION__MESSAGE, Ovlp),
+			NULL);
+
+		if (!SUCCEEDED(hr))
+		{
+			continue;
+		}
+
+		replyMessage.ReplyHeader.Status = 0;
+		replyMessage.ReplyHeader.MessageId = message->MessageHeader.MessageId;
+		if (0xFFFFFFFF == WTSGetActiveConsoleSessionId())
+		{
+			replyMessage.Reply.ErrorStatus = SESSION_ERROR;
+		}
+		else{
+			if (NULL != g_FindRemovableMedia)
+				g_FindRemovableMedia(&message->Notification, &replyMessage.Reply);
+		}
+
+		hr = FilterReplyMessage(
+			g_DeviceLockPortHandle,
+			(PFILTER_REPLY_HEADER)&replyMessage,
+			sizeof(replyMessage)
+			);
+	}
+
+	if (NULL != message) { free(message); }
+
+	return 1;
+}
+
+
 extern "C" __declspec(dllexport) int InitialCommunicationPort(void)
 {
 	DWORD hResult = FilterConnectCommunicationPort(
@@ -21,7 +80,7 @@ extern "C" __declspec(dllexport) int InitialCommunicationPort(void)
 	return 0;
 }
 
-extern "C" __declspec(dllexport) int NPSendMessage(PVOID InputBuffer)
+extern "C" __declspec(dllexport) int FDSendMessage(PVOID InputBuffer)
 {
 	DWORD bytesReturned = 0;
 	DWORD hResult = 0;

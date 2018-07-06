@@ -11,6 +11,33 @@
 #define	FILEDISK_READ_AUTHORITY		0x00000001			//读权限
 #define FILEDISK_NONE_AUTHORITY		0x00000000			//无权限，禁用
 
+typedef unsigned char BYTE;
+
+typedef struct _FILEDISK_NOTIFICATION
+{
+	BYTE			isSpecial;					//是否是特定的U盘
+	ULONG			fileDiskAuthority;			//权限
+	LARGE_INTEGER	offset;						//U盘偏移
+	LARGE_INTEGER	storageSize;				//U盘大小
+}FILEDISK_NOTIFICATION, *PFILEDISK_NOTIFICATION;
+
+typedef struct _FILEDISK_NOTIFICATION_MESSAGE {
+
+	//
+	//  Required structure header.
+	//
+
+	FILTER_MESSAGE_HEADER MessageHeader;
+
+
+	//
+	//  Private scanner-specific fields begin here.
+	//
+
+	FILEDISK_NOTIFICATION Notification;
+
+
+} FILEDISK_NOTIFICATION__MESSAGE, *PFILEDISK_NOTIFICATION__MESSAGE;
 
 FLT_PREOP_CALLBACK_STATUS MiniFilterCommonPreOperationCallback(
 	PFLT_CALLBACK_DATA Data,

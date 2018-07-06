@@ -32,7 +32,7 @@ extern "C" {
 #endif
 
 __declspec(dllexport)	int InitialCommunicationPort(void);
-__declspec(dllexport)   int NPSendMessage(PVOID InputBuffer);
+__declspec(dllexport)   int FDSendMessage(PVOID InputBuffer);
 
 
 #ifdef __cplusplus

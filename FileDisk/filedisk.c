@@ -37,7 +37,6 @@
 
 #define MINISPY_PORT_NAME			   L"\\NPMiniPort"
 
-typedef unsigned char BYTE;
 
 // unsigned char * g_seedCode = "I am key";
 PFLT_FILTER g_FilterHandle;					//¹ýÂËÆ÷¾ä±ú

@@ -1,8 +1,11 @@
 #include <ntifs.h>
 #include "MiniFilter.h"
 #include "function.h"
+#include "filedisk.h"
 
 extern PFLT_FILTER g_FilterHandle;					//过滤器句柄
+extern PFLT_PORT 	g_ServerPort;
+extern PFLT_PORT 	g_ClientPort;
 extern ULONG		g_filediskAuthority;			//权限
 
 
@@ -297,8 +300,20 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	PFLT_VOLUME_PROPERTIES volProp = (PFLT_VOLUME_PROPERTIES)volPropBuffer;
 	PUNICODE_STRING workingName;
 
+	PFILEDISK_NOTIFICATION		notification;		//驱动通知应用层的消息
+	ULONG						replyLength = 0;
+	LARGE_INTEGER				timeOut = { 0 };
+
+	OBJECT_ATTRIBUTES			uDiskOa;
+	HANDLE						hUDisk;				//U盘句柄
+	IO_STATUS_BLOCK				iostatus;
+	PUCHAR						buffer;
+	LARGE_INTEGER				fileOffset;			//读取磁盘的偏移
+
 	char devicePath[260] = { 0 };
 
+
+	notification = (PFILEDISK_NOTIFICATION)ExAllocatePoolWithTag(NonPagedPool, sizeof(FILEDISK_NOTIFICATION), FILE_DISK_POOL_TAG);
 
 	status = FltGetDiskDeviceObject(FltObjects->Volume, &DeviceObject);
 
@@ -317,6 +332,84 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	{
 		//有U盘插入
 		KdPrint(("FileDisk: MiniFilter instance 有U盘插入\n"));
+
+		status = ExAllocatePoolWithTag(NonPagedPool, sizeof(FILEDISK_NOTIFICATION), FILE_DISK_POOL_TAG);
+		if (!NT_SUCCESS(status))
+		{
+			KdPrint(("FileDisk: MiniFilter instance 消息结构体分配内存失败\n"));
+			return STATUS_FLT_DO_NOT_ATTACH;
+		}
+
+		/************************************************************************/
+		/* 这里有个读盘操作 判断是U盘类型  填充notification                        */
+		RtlZeroMemory(volProp, sizeof(volPropBuffer));
+		status = FltGetVolumeProperties(FltObjects->Volume,
+			volProp,
+			sizeof(volPropBuffer),
+			&retLen);
+		workingName = &volProp->RealDeviceName;
+
+		InitializeObjectAttributes(&uDiskOa,
+			workingName,
+			OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE,
+			NULL,
+			NULL);
+
+		
+		status = ZwCreateFile(&hUDisk,
+			GENERIC_READ,
+			&uDiskOa,
+			&iostatus,
+			NULL,
+			FILE_ATTRIBUTE_NORMAL,
+			FILE_SHARE_READ,
+			FILE_OPEN,
+			FILE_NON_DIRECTORY_FILE |
+			FILE_RANDOM_ACCESS |
+			FILE_NO_INTERMEDIATE_BUFFERING |
+			FILE_SYNCHRONOUS_IO_NONALERT |
+			FILE_WRITE_THROUGH,
+			NULL,
+			0
+			);
+
+		if (NT_SUCCESS(status))
+		{
+			fileOffset.QuadPart = (2048 + 10 * 1024 * 2/*10M大小的扇区数	*/) * 512;
+			buffer = (PUCHAR)ExAllocatePoolWithTag(NonPagedPool, 512, FILE_DISK_POOL_TAG);
+			status = ZwReadFile(
+				hUDisk,
+				NULL,
+				NULL,
+				NULL,
+				&iostatus,
+				buffer,
+				512,
+				&fileOffset,
+				NULL);
+		}
+		// 待修改 需要创建一个结构体 并且校验结构体的数据是否改变过  crc
+		notification->isSpecial = 0;
+		notification->fileDiskAuthority = 0;
+		notification->offset.QuadPart = 0;
+		notification->storageSize.QuadPart = 0;
+
+		/************************************************************************/
+
+		status = FltSendMessage(g_FilterHandle,
+			g_ClientPort,
+			notification,
+			sizeof(FILEDISK_NOTIFICATION),
+			notification,
+			&replyLength,
+			&timeOut
+			);
+
+		if (NT_SUCCESS(status))
+		{
+			//通过返回的设置权限
+			g_filediskAuthority = notification->fileDiskAuthority;
+		}
 	}
 	
 	/************************************************************************/
@@ -324,6 +417,7 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	//首先判断设备类型
 	if (FILE_DEVICE_DISK == DeviceObject->DeviceType)
 	{
+		RtlZeroMemory(volProp, sizeof(volPropBuffer));
 		status = FltGetVolumeProperties(FltObjects->Volume,
 			volProp,
 			sizeof(volPropBuffer),
