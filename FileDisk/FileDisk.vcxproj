@@ -201,6 +201,7 @@
     <FilesToPackage Include="@(Inf->'%(CopyOutput)')" Condition="'@(Inf)'!=''" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="crc32.c" />
     <ClCompile Include="filedisk.c" />
     <ClCompile Include="function.c" />
     <ClCompile Include="MiniFilter.c" />
@@ -209,6 +210,7 @@
     <ClCompile Include="rc4_skey_old.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="crc32.h" />
     <ClInclude Include="filedisk.h" />
     <ClInclude Include="function.h" />
     <ClInclude Include="MiniFilter.h" />

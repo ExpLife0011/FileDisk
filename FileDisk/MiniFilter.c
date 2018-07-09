@@ -2,6 +2,7 @@
 #include "MiniFilter.h"
 #include "function.h"
 #include "filedisk.h"
+#include "crc32.h"
 
 extern PFLT_FILTER g_FilterHandle;					//过滤器句柄
 extern PFLT_PORT 	g_ServerPort;
@@ -307,8 +308,15 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	OBJECT_ATTRIBUTES			uDiskOa;
 	HANDLE						hUDisk;				//U盘句柄
 	IO_STATUS_BLOCK				iostatus;
-	PUCHAR						buffer;
+	PUCHAR						buffer = NULL;
 	LARGE_INTEGER				fileOffset;			//读取磁盘的偏移
+
+	PFILEDISK_VERIFY			fileDiskVerify;
+	ULONG						verifyCode;
+
+	UCHAR						replyBuffer[512] = { 0 };
+
+
 
 	char devicePath[260] = { 0 };
 
@@ -325,7 +333,7 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	KdPrint(("FileDisk: MINI_FILTER deviceTyep=%d\n"), DeviceObject->DeviceType);
 
 	/************************************************************************/
-	/* 判断是否有U盘插入                                                      */
+	/* 判断是否有U盘插入   插入立即通知                                        */
 	
 	GetDeviceBusType(DeviceObject, &busType);
 	if (BusTypeUsb == busType)
@@ -333,12 +341,12 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 		//有U盘插入
 		KdPrint(("FileDisk: MiniFilter instance 有U盘插入\n"));
 
-		status = ExAllocatePoolWithTag(NonPagedPool, sizeof(FILEDISK_NOTIFICATION), FILE_DISK_POOL_TAG);
-		if (!NT_SUCCESS(status))
-		{
-			KdPrint(("FileDisk: MiniFilter instance 消息结构体分配内存失败\n"));
-			return STATUS_FLT_DO_NOT_ATTACH;
-		}
+// 		status = ExAllocatePoolWithTag(NonPagedPool, sizeof(FILEDISK_NOTIFICATION), FILE_DISK_POOL_TAG);
+// 		if (!NT_SUCCESS(status))
+// 		{
+// 			KdPrint(("FileDisk: MiniFilter instance 消息结构体分配内存失败\n"));
+// 			return STATUS_FLT_DO_NOT_ATTACH;
+// 		}
 
 		/************************************************************************/
 		/* 这里有个读盘操作 判断是U盘类型  填充notification                        */
@@ -387,34 +395,59 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 				512,
 				&fileOffset,
 				NULL);
+
+			ZwClose(hUDisk);
+
+			//校验结构体的数据是否改变过  crc
+
+			fileDiskVerify = (PFILEDISK_VERIFY)buffer;
+			verifyCode = crc32(fileDiskVerify->code, 508);
+
+			if (verifyCode == fileDiskVerify->verifyCode)
+			{
+				notification->isSpecial = 1;
+			}
+			else
+			{
+				notification->isSpecial = 0;
+			}
+
+			notification->fileDiskAuthority = 0;
+			notification->offset.QuadPart = 0;
+			notification->storageSize.QuadPart = 0;
+
+			ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+
+			/************************************************************************/
+
+			KdPrint(("Filedisk MiniFilter: 发送插入U盘消息，U盘类型：%d\n", notification->isSpecial));
+
+			status = FltSendMessage(g_FilterHandle,
+				&g_ClientPort,
+				notification,
+				sizeof(FILEDISK_NOTIFICATION),
+				replyBuffer,							//	接收应用层发过来的消息
+				&replyLength,
+				NULL
+				);
+
+			if (NT_SUCCESS(status))
+			{
+				//通过返回的设置权限
+				g_filediskAuthority = ((PFILEDISK_NOTIFICATION)replyBuffer)->fileDiskAuthority;
+				KdPrint(("Filedisk MiniFilter: 应用层传过来的权限为：%d\n", g_filediskAuthority));
+			}
+			else
+			{
+				KdPrint(("FileDisk MiniFilter: 驱动层发送消息失败：%08x\n", status));
+			}
 		}
-		// 待修改 需要创建一个结构体 并且校验结构体的数据是否改变过  crc
-		notification->isSpecial = 0;
-		notification->fileDiskAuthority = 0;
-		notification->offset.QuadPart = 0;
-		notification->storageSize.QuadPart = 0;
 
-		/************************************************************************/
-
-		status = FltSendMessage(g_FilterHandle,
-			g_ClientPort,
-			notification,
-			sizeof(FILEDISK_NOTIFICATION),
-			notification,
-			&replyLength,
-			&timeOut
-			);
-
-		if (NT_SUCCESS(status))
-		{
-			//通过返回的设置权限
-			g_filediskAuthority = notification->fileDiskAuthority;
-		}
 	}
 	
 	/************************************************************************/
 
-	//首先判断设备类型
+	//首先判断设备类型		如果是自己创建的设备 绑定
 	if (FILE_DEVICE_DISK == DeviceObject->DeviceType)
 	{
 		RtlZeroMemory(volProp, sizeof(volPropBuffer));
@@ -448,6 +481,8 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 		return STATUS_FLT_DO_NOT_ATTACH;
 	}
 
+
+	ExFreePoolWithTag(notification, FILE_DISK_POOL_TAG);
 
 	return STATUS_FLT_DO_NOT_ATTACH;
 }

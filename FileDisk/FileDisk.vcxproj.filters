@@ -23,6 +23,9 @@
     <Filter Include="MiniFilter">
       <UniqueIdentifier>{937e6740-dbd8-4c2d-ae0f-c96c38becf7f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="CRC">
+      <UniqueIdentifier>{58bc9e47-55ca-4f20-9b7d-5135f0415b8d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="filedisk.c">
@@ -43,6 +46,9 @@
     <ClCompile Include="function.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="crc32.c">
+      <Filter>CRC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="filedisk.h">
@@ -59,6 +65,9 @@
     </ClInclude>
     <ClInclude Include="function.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="crc32.h">
+      <Filter>CRC</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

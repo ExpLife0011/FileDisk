@@ -1,38 +1,70 @@
 // FileDiskDynamic.cpp : 定义 DLL 应用程序的导出函数。
 //
 #include "stdafx.h"
+#include <stdlib.h>
 #include "FileDiskDynamic.h"
 
 HANDLE g_hPort = INVALID_HANDLE_VALUE;
 
+typedef struct _FILEDISK_NOTIFICATION
+{
+	BYTE			isSpecial;					//是否是特定的U盘
+	ULONG			fileDiskAuthority;			//权限
+	LARGE_INTEGER	offset;						//U盘偏移
+	LARGE_INTEGER	storageSize;				//U盘大小
+}FILEDISK_NOTIFICATION, *PFILEDISK_NOTIFICATION;
+
+typedef struct _FILEDISK_NOTIFICATION_MESSAGE {
+
+	//
+	//  Required structure header.
+	//
+
+	FILTER_MESSAGE_HEADER MessageHeader;
+
+
+	//
+	//  Private scanner-specific fields begin here.
+	//
+
+	FILEDISK_NOTIFICATION Notification;
+
+
+} FILEDISK_NOTIFICATION__MESSAGE, *PFILEDISK_NOTIFICATION__MESSAGE;
+
+typedef struct _FILEDISK_REPLY_MESSAGE_
+{
+	FILTER_REPLY_HEADER replyHeader;
+	FILEDISK_NOTIFICATION reply;
+}FILEDISK_REPLY_MESSAGE, *PFILEDISK_REPLY_MESSAGE;
+
 /************************************************************************/
 /* 监控是否有U盘插入                                                      */
 /************************************************************************/
-DWORD MessageWorker(IN LPVOID pParam)
+DWORD WINAPI MessageWorker(IN LPVOID pParam)
 {
 
 	HRESULT                          hr = S_OK;
-	PDVCLOCK_NOTIFICATION            notification = NULL;
-	PDVCLOCK_NOTIFICATION__MESSAGE   message = NULL;
-	DVCLOCK__REPLY_MESSAGE           replyMessage = { 0 };
+	PFILEDISK_NOTIFICATION            notification = NULL;
+	PFILEDISK_NOTIFICATION__MESSAGE   message = NULL;
+	FILEDISK_REPLY_MESSAGE           replyMessage = { 0 };
 
-	message = (PDVCLOCK_NOTIFICATION__MESSAGE)malloc(sizeof(DVCLOCK_NOTIFICATION__MESSAGE));
+	message = (PFILEDISK_NOTIFICATION__MESSAGE)malloc(sizeof(PFILEDISK_NOTIFICATION__MESSAGE));
 	if (NULL == message)
 		return 0x0L;
 
 	while (TRUE)
 	{
 		memset(&(message->Notification), 0, sizeof(message->Notification));
-		memset(&message->Ovlp, 0, sizeof(OVERLAPPED));
 
 		//
 		//  Request messages from the filter driver.
 		//
-
+		OutputDebugString(L"***********获取驱动层的消息*************");
 		hr = FilterGetMessage(
 			g_hPort,
 			&message->MessageHeader,
-			FIELD_OFFSET(DVCLOCK_NOTIFICATION__MESSAGE, Ovlp),
+			sizeof(FILEDISK_NOTIFICATION__MESSAGE),
 			NULL);
 
 		if (!SUCCEEDED(hr))
@@ -40,22 +72,18 @@ DWORD MessageWorker(IN LPVOID pParam)
 			continue;
 		}
 
-		replyMessage.ReplyHeader.Status = 0;
-		replyMessage.ReplyHeader.MessageId = message->MessageHeader.MessageId;
-		if (0xFFFFFFFF == WTSGetActiveConsoleSessionId())
-		{
-			replyMessage.Reply.ErrorStatus = SESSION_ERROR;
-		}
-		else{
-			if (NULL != g_FindRemovableMedia)
-				g_FindRemovableMedia(&message->Notification, &replyMessage.Reply);
-		}
+		replyMessage.replyHeader.Status = 0;
+		replyMessage.replyHeader.MessageId = message->MessageHeader.MessageId;
+
+		replyMessage.reply.fileDiskAuthority = 2;
+
 
 		hr = FilterReplyMessage(
-			g_DeviceLockPortHandle,
+			g_hPort,
 			(PFILTER_REPLY_HEADER)&replyMessage,
 			sizeof(replyMessage)
 			);
+		OutputDebugString(L"***********收到并且返回***********");
 	}
 
 	if (NULL != message) { free(message); }
@@ -66,6 +94,7 @@ DWORD MessageWorker(IN LPVOID pParam)
 
 extern "C" __declspec(dllexport) int InitialCommunicationPort(void)
 {
+	ULONG threadId = 0;
 	DWORD hResult = FilterConnectCommunicationPort(
 		NPMINI_PORT_NAME,
 		0,
@@ -77,6 +106,15 @@ extern "C" __declspec(dllexport) int InitialCommunicationPort(void)
 	if (hResult != S_OK) {
 		return hResult;
 	}
+
+	CreateThread(
+		NULL,
+		0,
+		MessageWorker,
+		NULL,
+		0,
+		&threadId);
+
 	return 0;
 }
 

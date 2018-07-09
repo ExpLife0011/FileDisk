@@ -5,14 +5,13 @@
 #include <stdio.h>
 #include <FltUser.h>
 
-#pragma comment(lib, "user32.lib")
-#pragma comment(lib, "kernel32.lib")
-#pragma comment(lib, "fltLib.lib")
-#pragma comment(lib, "fltMgr.lib")
-#pragma comment(lib, "ntoskrnl.lib")
-#pragma comment(lib, "hal.lib")
+// #pragma comment(lib, "user32.lib")
+// #pragma comment(lib, "kernel32.lib")
+// #pragma comment(lib, "fltLib.lib")
+// #pragma comment(lib, "fltMgr.lib")
+// #pragma comment(lib, "ntoskrnl.lib")
+// #pragma comment(lib, "hal.lib")
 
-extern HANDLE g_hPort;
 
 #define NPMINI_NAME            L"NPminifilter"
 #define NPMINI_PORT_NAME       L"\\NPMiniPort"
