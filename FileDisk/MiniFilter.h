@@ -25,25 +25,15 @@ typedef struct _FILEDISK_NOTIFICATION
 	ULONG			fileDiskAuthority;			//权限
 	LARGE_INTEGER	offset;						//U盘偏移
 	LARGE_INTEGER	storageSize;				//U盘大小
+	UCHAR			Contents[512];				//保留字段
 }FILEDISK_NOTIFICATION, *PFILEDISK_NOTIFICATION;
 
-typedef struct _FILEDISK_NOTIFICATION_MESSAGE {
+typedef struct _FILEDISK_REPLY {
 
-	//
-	//  Required structure header.
-	//
+	ULONG			fileDiskAuthority;			//应用层返回的权限
 
-	FILTER_MESSAGE_HEADER MessageHeader;
+} FILEDISK_REPLY, *PFILEDISK_REPLY;
 
-
-	//
-	//  Private scanner-specific fields begin here.
-	//
-
-	FILEDISK_NOTIFICATION Notification;
-
-
-} FILEDISK_NOTIFICATION__MESSAGE, *PFILEDISK_NOTIFICATION__MESSAGE;
 
 FLT_PREOP_CALLBACK_STATUS MiniFilterCommonPreOperationCallback(
 	PFLT_CALLBACK_DATA Data,

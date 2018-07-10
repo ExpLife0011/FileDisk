@@ -491,6 +491,13 @@ __out PULONG ReturnOutputBufferLength
 )
 {
 
+	if (InputBuffer != NULL &&
+		InputBufferSize >= sizeof(FILEDISK_REPLY))
+	{
+		g_filediskAuthority = ((PFILEDISK_REPLY)InputBuffer)->fileDiskAuthority;
+		KdPrint(("Filedisk MiniMessage:应用层传递过来的权限%d\n", g_filediskAuthority));
+	}
+
 	NTSTATUS status = STATUS_SUCCESS;
 
 	return status;

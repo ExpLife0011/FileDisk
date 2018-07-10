@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include "FileDiskDynamic.h"
 
-HANDLE g_hPort = INVALID_HANDLE_VALUE;
+HANDLE g_hPort, g_completion = INVALID_HANDLE_VALUE;
+
 
 typedef struct _FILEDISK_NOTIFICATION
 {
@@ -12,9 +13,18 @@ typedef struct _FILEDISK_NOTIFICATION
 	ULONG			fileDiskAuthority;			//权限
 	LARGE_INTEGER	offset;						//U盘偏移
 	LARGE_INTEGER	storageSize;				//U盘大小
+	UCHAR			Contents[512];				//保留字段
 }FILEDISK_NOTIFICATION, *PFILEDISK_NOTIFICATION;
 
-typedef struct _FILEDISK_NOTIFICATION_MESSAGE {
+typedef struct _FILEDISK_REPLY {
+
+	ULONG			fileDiskAuthority;			//应用层返回的权限
+
+} FILEDISK_REPLY, *PFILEDISK_REPLY;
+
+#pragma pack(1)
+
+typedef struct _FILEDISK_MESSAGE {
 
 	//
 	//  Required structure header.
@@ -29,66 +39,182 @@ typedef struct _FILEDISK_NOTIFICATION_MESSAGE {
 
 	FILEDISK_NOTIFICATION Notification;
 
+	//
+	//  Overlapped structure: this is not really part of the message
+	//  However we embed it instead of using a separately allocated overlap structure
+	//
 
-} FILEDISK_NOTIFICATION__MESSAGE, *PFILEDISK_NOTIFICATION__MESSAGE;
+	OVERLAPPED Ovlp;
 
-typedef struct _FILEDISK_REPLY_MESSAGE_
-{
-	FILTER_REPLY_HEADER replyHeader;
-	FILEDISK_NOTIFICATION reply;
-}FILEDISK_REPLY_MESSAGE, *PFILEDISK_REPLY_MESSAGE;
+} FILEDISK_MESSAGE, *PFILEDISK_MESSAGE;
+
+typedef struct _FILEDISK_REPLY_MESSAGE {
+
+	//
+	//  Required structure header.
+	//
+
+	FILTER_REPLY_HEADER ReplyHeader;
+
+	//
+	//  Private scanner-specific fields begin here.
+	//
+
+	FILEDISK_REPLY Reply;
+
+} FILEDISK_REPLY_MESSAGE, *PFILEDISK_REPLY_MESSAGE;
+
+
 
 /************************************************************************/
 /* 监控是否有U盘插入                                                      */
 /************************************************************************/
-DWORD WINAPI MessageWorker(IN LPVOID pParam)
+// DWORD WINAPI MessageWorker(IN LPVOID pParam)
+// {
+// 
+// 	HRESULT                          hr = S_OK;
+// 	PFILEDISK_NOTIFICATION            notification = NULL;
+// 	PFILEDISK_MESSAGE				   message = NULL;
+// 	FILEDISK_REPLY_MESSAGE           replyMessage = { 0 };
+// 
+// 	message = (PFILEDISK_MESSAGE)malloc(sizeof(PFILEDISK_MESSAGE));
+// 	if (NULL == message)
+// 		return 0x0L;
+// 
+// 	while (TRUE)
+// 	{
+// 		memset(&(message->Notification), 0, sizeof(message->Notification));
+// 
+// 		//
+// 		//  Request messages from the filter driver.
+// 		//
+// 		OutputDebugString(L"***********获取驱动层的消息*************");
+// 		hr = FilterGetMessage(
+// 			g_hPort,
+// 			&message->MessageHeader,
+// 			FIELD_OFFSET(FILEDISK_MESSAGE, Ovlp),
+// 			NULL);
+// 
+// 		if (!SUCCEEDED(hr))
+// 		{
+// 			continue;
+// 		}
+// 
+// 		replyMessage.ReplyHeader.Status = 0;
+// 		replyMessage.ReplyHeader.MessageId = message->MessageHeader.MessageId;
+// 
+// 		replyMessage.Reply.fileDiskAuthority = 2;
+// 
+// 
+// 		hr = FilterReplyMessage(
+// 			g_hPort,
+// 			(PFILTER_REPLY_HEADER)&replyMessage,
+// 			sizeof(replyMessage)
+// 			);
+// 		OutputDebugString(L"***********收到并且返回***********");
+// 	}
+// 
+// 	if (NULL != message) { free(message); }
+// 
+// 	return 1;
+// }
+
+
+DWORD
+WINAPI
+MessageWorker(
+IN LPVOID pParam
+)
+/*++
+
+Routine Description
+
+This is a worker thread that
+
+
+Arguments
+
+Context  - This thread context has a pointer to the port handle we use to send/receive messages,
+and a completion port handle that was already associated with the comm. port by the caller
+
+Return Value
+
+HRESULT indicating the status of thread exit.
+
+--*/
 {
+	PFILEDISK_NOTIFICATION notification;
+	FILEDISK_REPLY_MESSAGE replyMessage = {0};
+	PFILEDISK_MESSAGE message;
+	LPOVERLAPPED pOvlp;
+	BOOL result;
+	DWORD outSize;
+	HRESULT hr;
+	ULONG_PTR key;
 
-	HRESULT                          hr = S_OK;
-	PFILEDISK_NOTIFICATION            notification = NULL;
-	PFILEDISK_NOTIFICATION__MESSAGE   message = NULL;
-	FILEDISK_REPLY_MESSAGE           replyMessage = { 0 };
+	DWORD bytesReturned = 0;
 
-	message = (PFILEDISK_NOTIFICATION__MESSAGE)malloc(sizeof(PFILEDISK_NOTIFICATION__MESSAGE));
-	if (NULL == message)
-		return 0x0L;
+	char outbuffer[512] = {0};
 
-	while (TRUE)
-	{
-		memset(&(message->Notification), 0, sizeof(message->Notification));
+	message = (PFILEDISK_MESSAGE)malloc(sizeof(FILEDISK_MESSAGE));
+#pragma warning(push)
+#pragma warning(disable:4127) // conditional expression is constant
 
-		//
-		//  Request messages from the filter driver.
-		//
-		OutputDebugString(L"***********获取驱动层的消息*************");
-		hr = FilterGetMessage(
-			g_hPort,
+	while (TRUE) {
+
+#pragma warning(pop)
+
+		hr = FilterGetMessage(g_hPort,
 			&message->MessageHeader,
-			sizeof(FILEDISK_NOTIFICATION__MESSAGE),
+			FIELD_OFFSET(FILEDISK_MESSAGE, Ovlp),
 			NULL);
 
-		if (!SUCCEEDED(hr))
-		{
-			continue;
+		if (!SUCCEEDED(hr)) {
+
+			OutputDebugString(L"FilterGetMessage Error\n");
+
 		}
 
-		replyMessage.replyHeader.Status = 0;
-		replyMessage.replyHeader.MessageId = message->MessageHeader.MessageId;
-
-		replyMessage.reply.fileDiskAuthority = 2;
+		notification = &message->Notification;
 
 
-		hr = FilterReplyMessage(
-			g_hPort,
+		replyMessage.ReplyHeader.Status = 0;
+		replyMessage.ReplyHeader.MessageId = message->MessageHeader.MessageId;
+
+
+		replyMessage.Reply.fileDiskAuthority = 2;
+
+		printf("Replying message, fileDiskAuthority: %d\n", replyMessage.Reply.fileDiskAuthority);
+
+		hr = FilterReplyMessage(g_hPort,
 			(PFILTER_REPLY_HEADER)&replyMessage,
-			sizeof(replyMessage)
-			);
-		OutputDebugString(L"***********收到并且返回***********");
+			sizeof(FILTER_REPLY_HEADER) + sizeof(FILEDISK_REPLY));
+
+		if (SUCCEEDED(hr)) {
+
+			printf("Replied message\n");
+
+			//由于上面的没有把权限传递进去，现在马上传一个权限进去
+			FilterSendMessage(g_hPort,
+				&replyMessage.Reply,
+				sizeof(FILEDISK_REPLY),
+				NULL,
+				NULL,
+				&bytesReturned);
+
+		}
+		else {
+
+			printf("Scanner: Error replying message. Error = 0x%X\n", hr);
+			OutputDebugString(L"FilterReplyMessage Error\n");
+		}
+
+
 	}
 
-	if (NULL != message) { free(message); }
+	free(message);
 
-	return 1;
+	return hr;
 }
 
 
@@ -106,6 +232,11 @@ extern "C" __declspec(dllexport) int InitialCommunicationPort(void)
 	if (hResult != S_OK) {
 		return hResult;
 	}
+
+// 	g_completion = CreateIoCompletionPort(g_hPort,
+// 		NULL,
+// 		0,
+// 		NULL);
 
 	CreateThread(
 		NULL,
