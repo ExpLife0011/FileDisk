@@ -9,6 +9,7 @@ extern PFLT_PORT 	g_ServerPort;
 extern PFLT_PORT 	g_ClientPort;
 extern ULONG		g_filediskAuthority;			//权限
 
+#define BUFFER_SIZE 1024
 
 /************************************************************************/
 /* unicodeString 转 char                                                */
@@ -301,27 +302,23 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	PFLT_VOLUME_PROPERTIES volProp = (PFLT_VOLUME_PROPERTIES)volPropBuffer;
 	PUNICODE_STRING workingName;
 
-	PFILEDISK_NOTIFICATION		notification;		//驱动通知应用层的消息
-	ULONG						replyLength = 0;
-	LARGE_INTEGER				timeOut = { 0 };
+// 	PFILEDISK_NOTIFICATION		notification;		//驱动通知应用层的消息
+// 	ULONG						replyLength = 0;
+// 	LARGE_INTEGER				timeOut = { 0 };
+// 
+// 
+// 	UCHAR						replyBuffer[2048] = { 0 };
 
-	OBJECT_ATTRIBUTES			uDiskOa;
-	HANDLE						hUDisk;				//U盘句柄
-	IO_STATUS_BLOCK				iostatus;
-	PUCHAR						buffer = NULL;
-	LARGE_INTEGER				fileOffset;			//读取磁盘的偏移
 
-	PFILEDISK_VERIFY			fileDiskVerify;
-	ULONG						verifyCode;
+	HANDLE						threadHandle;
 
-	UCHAR						replyBuffer[2048] = { 0 };
-
+	PREAD_UDISK_CONTEXT			context = NULL;		//传入线程的相关数据
 
 
 	char devicePath[260] = { 0 };
 
 
-	notification = ExAllocatePoolWithTag(NonPagedPool, sizeof(FILEDISK_NOTIFICATION), FILE_DISK_POOL_TAG);
+// 	notification = ExAllocatePoolWithTag(NonPagedPool, sizeof(FILEDISK_NOTIFICATION), FILE_DISK_POOL_TAG);
 
 	status = FltGetDiskDeviceObject(FltObjects->Volume, &DeviceObject);
 
@@ -350,117 +347,27 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 			&retLen);
 		workingName = &volProp->RealDeviceName;
 
-		InitializeObjectAttributes(&uDiskOa,
-			workingName,
-			OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE,
-			NULL,
-			NULL);
 
+		context = (PREAD_UDISK_CONTEXT)ExAllocatePoolWithTag(NonPagedPool, sizeof(READ_UDISK_CONTEXT), FILE_DISK_POOL_TAG);
+
+		context->deviceName = (PWCH)ExAllocatePoolWithTag(NonPagedPool, 2 * wcslen(workingName->Buffer) + 2, FILE_DISK_POOL_TAG);  //多两个字节用于填充0000
+		RtlZeroMemory(context->deviceName, 2 * wcslen(workingName->Buffer) + 2);
 		
-// 		status = ZwCreateFile(&hUDisk,
-// 			GENERIC_READ,
-// 			&uDiskOa,
-// 			&iostatus,
-// 			NULL,
-// 			FILE_ATTRIBUTE_NORMAL,
-// 			FILE_SHARE_READ,
-// 			FILE_OPEN,
-// 			FILE_NON_DIRECTORY_FILE |
-// 			FILE_RANDOM_ACCESS |
-// 			FILE_NO_INTERMEDIATE_BUFFERING |
-// 			FILE_SYNCHRONOUS_IO_NONALERT |
-// 			FILE_WRITE_THROUGH,
-// 			NULL,
-// 			0
-// 			);
+		RtlCopyMemory(context->deviceName, workingName->Buffer, 2 * wcslen(workingName->Buffer));
 
-// 		if (NT_SUCCESS(status))
-// 		{
-// 			fileOffset.QuadPart = (2048 + 10 * 1024 * 2/*10M大小的扇区数	*/) * 512;
-// 			buffer = (PUCHAR)ExAllocatePoolWithTag(NonPagedPool, 512, FILE_DISK_POOL_TAG);
-// 			status = ZwReadFile(
-// 				hUDisk,
-// 				NULL,
-// 				NULL,
-// 				NULL,
-// 				&iostatus,
-// 				buffer,
-// 				512,
-// 				&fileOffset,
-// 				NULL);
-// 
-// 			ZwClose(hUDisk);
-// 
-// 			//校验结构体的数据是否改变过  crc
-// 
-// 			fileDiskVerify = (PFILEDISK_VERIFY)buffer;
-// 			verifyCode = crc32(fileDiskVerify->code, 508);
-// 
-// 			if (verifyCode == fileDiskVerify->verifyCode)
-// 			{
-// 				notification->isSpecial = 1;
-// 			}
-// 			else
-// 			{
-// 				notification->isSpecial = 0;
-// 			}
-// 
-// 			notification->fileDiskAuthority = 0;
-// 			notification->offset.QuadPart = 0;
-// 			notification->storageSize.QuadPart = 0;
-// 
-// 			ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
-// 
-// 			/************************************************************************/
-// 
-// 			KdPrint(("Filedisk MiniFilter: 发送插入U盘消息，U盘类型：%d\n", notification->isSpecial));
-// 
-// 			status = FltSendMessage(g_FilterHandle,
-// 				&g_ClientPort,
-// 				notification,
-// 				sizeof(FILEDISK_NOTIFICATION),
-// 				notification,							//	接收应用层发过来的消息
-// 				&replyLength,
-// 				NULL
-// 				);
-// 
-// 			if (NT_SUCCESS(status))
-// 			{
-// 				//通过返回的设置权限
-// 				g_filediskAuthority = (PFILEDISK_REPLY)notification->fileDiskAuthority;
-// 				KdPrint(("Filedisk MiniFilter: 应用层传过来的权限为：%d\n", g_filediskAuthority));
-// 			}
-// 			else
-// 			{
-// 				KdPrint(("FileDisk MiniFilter: 驱动层发送消息失败：%08x\n", status));
-// 			}
-// 		}
-// 
 
-		notification->isSpecial = 1;
-		notification->fileDiskAuthority = 0;
-		notification->offset.QuadPart = 0;
-		notification->storageSize.QuadPart = 0;
+		//创建线程用于读取磁盘并发送消息
 
-		status = FltSendMessage(g_FilterHandle,
-			&g_ClientPort,
-			notification,
-			sizeof(FILEDISK_NOTIFICATION),
-			NULL,							//	接收应用层发过来的消息
-			&replyLength,
-			NULL
+		status = PsCreateSystemThread(
+			&threadHandle,
+			(ACCESS_MASK)0L,
+			NULL,
+			NULL,
+			NULL,
+			ReadUDiskThread,
+			context
 			);
 
-		if (NT_SUCCESS(status))
-		{
-			//通过返回的设置权限
-			g_filediskAuthority = (PFILEDISK_REPLY)notification->fileDiskAuthority;
-			KdPrint(("Filedisk MiniFilter: 应用层传过来的权限为：%d\n", g_filediskAuthority));
-		}
-		else
-		{
-			KdPrint(("FileDisk MiniFilter: 驱动层发送消息失败：%08x\n", status));
-		}
  	}
 	/************************************************************************/
 
@@ -499,7 +406,7 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	}
 
 
-	ExFreePoolWithTag(notification, FILE_DISK_POOL_TAG);
+// 	ExFreePoolWithTag(notification, FILE_DISK_POOL_TAG);
 
 	return STATUS_FLT_DO_NOT_ATTACH;
 }
@@ -514,3 +421,126 @@ _In_ FLT_INSTANCE_QUERY_TEARDOWN_FLAGS Flags
 	return STATUS_SUCCESS;
 }
 
+
+VOID
+ReadUDiskThread(
+IN PVOID Context
+)
+{
+	OBJECT_ATTRIBUTES			uDiskOa;
+	HANDLE						hUDisk;				//U盘句柄
+	IO_STATUS_BLOCK				iostatus;
+	PUCHAR						buffer = NULL;
+	LARGE_INTEGER				fileOffset;			//读取磁盘的偏移
+
+	PFILEDISK_VERIFY			fileDiskVerify;
+	ULONG						verifyCode;
+
+	NTSTATUS					status;
+
+	PFILEDISK_NOTIFICATION		notification;		//驱动通知应用层的消息
+	ULONG						replyLength = 0;
+
+	UNICODE_STRING				DeviceName;
+	RtlInitUnicodeString(&DeviceName, ((PREAD_UDISK_CONTEXT)Context)->deviceName);
+
+	KdPrint(("FileDisk UDisk Read Thread DeviceName: %wZ\n", &DeviceName));
+
+	InitializeObjectAttributes(&uDiskOa,
+		&DeviceName,
+		OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE,
+		NULL,
+		NULL);
+
+		status = ZwCreateFile(&hUDisk,
+			GENERIC_READ,
+			&uDiskOa,
+			&iostatus,
+			NULL,
+			FILE_ATTRIBUTE_NORMAL,
+			FILE_SHARE_READ,
+			FILE_OPEN,
+			FILE_NON_DIRECTORY_FILE |
+			FILE_RANDOM_ACCESS |
+			FILE_NO_INTERMEDIATE_BUFFERING |
+			FILE_SYNCHRONOUS_IO_NONALERT |
+			FILE_WRITE_THROUGH,
+			NULL,
+			0
+			);
+
+		if (!NT_SUCCESS(status))
+		{
+			KdPrint(("FileDisk ReadUdiskThread CreateFile error, errCode:%08x\n", status));
+			return;
+		}
+
+		fileOffset.QuadPart = (2048 + 10 * 1024 * 2/*10M大小的扇区数	*/) * 512;
+		buffer = (PUCHAR)ExAllocatePoolWithTag(NonPagedPool, 512, FILE_DISK_POOL_TAG);
+		status = ZwReadFile(
+			hUDisk,
+			NULL,
+			NULL,
+			NULL,
+			&iostatus,
+			buffer,
+			512,
+			&fileOffset,
+			NULL);
+
+		if (!NT_SUCCESS(status))
+		{
+			KdPrint(("FileDisk ReadUdiskThread readfile error, errCode:%08x\n", status));
+			ExFreePoolWithTag(((PREAD_UDISK_CONTEXT)Context)->deviceName, FILE_DISK_POOL_TAG);
+			ExFreePoolWithTag(Context, FILE_DISK_POOL_TAG);
+			ZwClose(hUDisk);
+			return;
+		}
+		ZwClose(hUDisk);
+		ExFreePoolWithTag(((PREAD_UDISK_CONTEXT)Context)->deviceName, FILE_DISK_POOL_TAG);
+		ExFreePoolWithTag(Context, FILE_DISK_POOL_TAG);
+
+		notification = ExAllocatePoolWithTag(NonPagedPool, sizeof(FILEDISK_NOTIFICATION), FILE_DISK_POOL_TAG);
+
+		//校验结构体的数据是否改变过  crc
+
+		fileDiskVerify = (PFILEDISK_VERIFY)buffer;
+		verifyCode = crc32(fileDiskVerify->code, 508);
+
+		if (verifyCode == fileDiskVerify->verifyCode)
+		{
+			notification->isSpecial = 1;
+			KdPrint(("Filedisk 插入的为特定的U盘\n"));
+		}
+		else
+		{
+			notification->isSpecial = 0;
+			KdPrint(("FileDisk 插入的为普通的U盘\n"));
+		}
+
+		notification->isSpecial = 1;
+		notification->fileDiskAuthority = 0;
+		notification->offset.QuadPart = 0;
+		notification->storageSize.QuadPart = 0;
+
+		status = FltSendMessage(g_FilterHandle,
+			&g_ClientPort,
+			notification,
+			sizeof(FILEDISK_NOTIFICATION),
+			NULL,							//	接收应用层发过来的消息
+			&replyLength,
+			NULL
+			);
+
+		if (NT_SUCCESS(status))
+		{
+			//通过返回的设置权限
+			// 			g_filediskAuthority = (PFILEDISK_REPLY)notification->fileDiskAuthority;
+			KdPrint(("Filedisk MiniFilter: 应用层传过来的权限为：%d\n", g_filediskAuthority));
+		}
+		else
+		{
+			KdPrint(("FileDisk MiniFilter: 驱动层发送消息失败：%08x\n", status));
+		}
+
+}

@@ -35,6 +35,12 @@ typedef struct _FILEDISK_REPLY {
 } FILEDISK_REPLY, *PFILEDISK_REPLY;
 
 
+typedef struct _READ_UDISK_CONTEXT_
+{
+// 	PUNICODE_STRING	DeviceName;
+	PWCH			deviceName;
+}READ_UDISK_CONTEXT, *PREAD_UDISK_CONTEXT;
+
 FLT_PREOP_CALLBACK_STATUS MiniFilterCommonPreOperationCallback(
 	PFLT_CALLBACK_DATA Data,
 	PCFLT_RELATED_OBJECTS FltObjects,
@@ -114,5 +120,10 @@ MiniFilterUnload(
 _In_ FLT_FILTER_UNLOAD_FLAGS Flags
 );
 
+//读取磁盘并发送消息的线程
+VOID
+ReadUDiskThread(
+IN PVOID Context
+);
 
 #endif // _MINI_FILTER_

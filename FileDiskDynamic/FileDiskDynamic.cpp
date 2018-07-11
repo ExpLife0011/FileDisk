@@ -186,13 +186,14 @@ HRESULT indicating the status of thread exit.
 
 		printf("Replying message, fileDiskAuthority: %d\n", replyMessage.Reply.fileDiskAuthority);
 
-		hr = FilterReplyMessage(g_hPort,
-			(PFILTER_REPLY_HEADER)&replyMessage,
-			sizeof(FILTER_REPLY_HEADER) + sizeof(FILEDISK_REPLY));
+// 		hr = FilterReplyMessage(g_hPort,
+// 			(PFILTER_REPLY_HEADER)&replyMessage,
+// 			sizeof(FILTER_REPLY_HEADER) + sizeof(FILEDISK_REPLY));
 
 		if (SUCCEEDED(hr)) {
 
 			printf("Replied message\n");
+			OutputDebugStringA("Replied message\n");
 
 			//由于上面的没有把权限传递进去，现在马上传一个权限进去
 			FilterSendMessage(g_hPort,
@@ -205,8 +206,8 @@ HRESULT indicating the status of thread exit.
 		}
 		else {
 
-			printf("Scanner: Error replying message. Error = 0x%X\n", hr);
-			OutputDebugString(L"FilterReplyMessage Error\n");
+			sprintf(outbuffer, "Scanner: Error replying message. Error = 0x%X\n", hr);
+			OutputDebugStringA(outbuffer);
 		}
 
 
