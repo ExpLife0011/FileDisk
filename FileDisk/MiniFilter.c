@@ -250,10 +250,10 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreWriteCallback(
 /************************************************************************/
 FLT_POSTOP_CALLBACK_STATUS MiniFilterPostWriteCallback(
 	PFLT_CALLBACK_DATA Data,
-	PCFLT_RELATED_OBJECTS FltObjects,
-	PVOID CompletionContext,
-	FLT_POST_OPERATION_FLAGS Flags
-	)
+PCFLT_RELATED_OBJECTS FltObjects,
+PVOID CompletionContext,
+FLT_POST_OPERATION_FLAGS Flags
+)
 {
 	UNREFERENCED_PARAMETER(Data);
 	UNREFERENCED_PARAMETER(FltObjects);
@@ -302,12 +302,12 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	PFLT_VOLUME_PROPERTIES volProp = (PFLT_VOLUME_PROPERTIES)volPropBuffer;
 	PUNICODE_STRING workingName;
 
-// 	PFILEDISK_NOTIFICATION		notification;		//驱动通知应用层的消息
-// 	ULONG						replyLength = 0;
-// 	LARGE_INTEGER				timeOut = { 0 };
-// 
-// 
-// 	UCHAR						replyBuffer[2048] = { 0 };
+	// 	PFILEDISK_NOTIFICATION		notification;		//驱动通知应用层的消息
+	// 	ULONG						replyLength = 0;
+	// 	LARGE_INTEGER				timeOut = { 0 };
+	// 
+	// 
+	// 	UCHAR						replyBuffer[2048] = { 0 };
 
 
 	HANDLE						threadHandle;
@@ -318,20 +318,21 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	char devicePath[260] = { 0 };
 
 
-// 	notification = ExAllocatePoolWithTag(NonPagedPool, sizeof(FILEDISK_NOTIFICATION), FILE_DISK_POOL_TAG);
+	// 	notification = ExAllocatePoolWithTag(NonPagedPool, sizeof(FILEDISK_NOTIFICATION), FILE_DISK_POOL_TAG);
 
 	status = FltGetDiskDeviceObject(FltObjects->Volume, &DeviceObject);
+// 	status = FltGetDeviceObject(FltObjects->Volume, &DeviceObject);
 
 	if (!NT_SUCCESS(status))
 	{
-		return STATUS_FLT_DO_NOT_ATTACH;
+		return STATUS_UNSUCCESSFUL;
 	}
 
 	KdPrint(("FileDisk: MINI_FILTER deviceTyep=%d\n"), DeviceObject->DeviceType);
 
 	/************************************************************************/
 	/* 判断是否有U盘插入   插入立即通知                                        */
-	
+
 	GetDeviceBusType(DeviceObject, &busType);
 	if (BusTypeUsb == busType)
 	{
@@ -347,6 +348,17 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 			&retLen);
 		workingName = &volProp->RealDeviceName;
 
+		//过滤一个设备卷
+
+// 		if (FDUnicodeStringToChar(workingName, devicePath))
+// 		{
+// 			if (strstr(devicePath, "VOLUME") != NULL)
+// 			{
+// 				//说明这是一个卷设备
+// 				KdPrint(("FileDisk: 这是一个设备卷\n"));
+// 				return STATUS_UNSUCCESSFUL;
+// 			}
+// 		}
 
 		context = (PREAD_UDISK_CONTEXT)ExAllocatePoolWithTag(NonPagedPool, sizeof(READ_UDISK_CONTEXT), FILE_DISK_POOL_TAG);
 

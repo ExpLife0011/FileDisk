@@ -34,6 +34,7 @@ __declspec(dllexport)	int InitialCommunicationPort(void);
 __declspec(dllexport)   int FDSendMessage(PVOID InputBuffer);
 
 
+
 #ifdef __cplusplus
 }
 #endif
