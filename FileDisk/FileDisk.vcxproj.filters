@@ -26,6 +26,9 @@
     <Filter Include="CRC">
       <UniqueIdentifier>{58bc9e47-55ca-4f20-9b7d-5135f0415b8d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="HookIrp">
+      <UniqueIdentifier>{609e033b-4f3b-487e-b139-8220b088619c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="filedisk.c">
@@ -49,6 +52,9 @@
     <ClCompile Include="crc32.c">
       <Filter>CRC</Filter>
     </ClCompile>
+    <ClCompile Include="HookIrp.cpp">
+      <Filter>HookIrp</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="filedisk.h">
@@ -68,6 +74,9 @@
     </ClInclude>
     <ClInclude Include="crc32.h">
       <Filter>CRC</Filter>
+    </ClInclude>
+    <ClInclude Include="HookIrp.h">
+      <Filter>HookIrp</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

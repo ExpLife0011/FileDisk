@@ -196,6 +196,14 @@
       <AdditionalDependencies>wdmsec.lib;FltMgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Debug|x64'">
+    <ClCompile>
+      <TreatWarningAsError>false</TreatWarningAsError>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>wdmsec.lib;FltMgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <FilesToPackage Include="$(TargetPath)" />
     <FilesToPackage Include="@(Inf->'%(CopyOutput)')" Condition="'@(Inf)'!=''" />
@@ -204,6 +212,7 @@
     <ClCompile Include="crc32.c" />
     <ClCompile Include="filedisk.c" />
     <ClCompile Include="function.c" />
+    <ClCompile Include="HookIrp.cpp" />
     <ClCompile Include="MiniFilter.c" />
     <ClCompile Include="rc4.c" />
     <ClCompile Include="rc4_enc_old.c" />
@@ -213,6 +222,7 @@
     <ClInclude Include="crc32.h" />
     <ClInclude Include="filedisk.h" />
     <ClInclude Include="function.h" />
+    <ClInclude Include="HookIrp.h" />
     <ClInclude Include="MiniFilter.h" />
     <ClInclude Include="rc4.h" />
     <ClInclude Include="rc4_old.h" />
