@@ -177,6 +177,7 @@ HRESULT indicating the status of thread exit.
 
 		notification = &message->Notification;
 
+		OutputDebugString((wchar_t *)&notification->Contents);
 
 		replyMessage.ReplyHeader.Status = 0;
 		replyMessage.ReplyHeader.MessageId = message->MessageHeader.MessageId;

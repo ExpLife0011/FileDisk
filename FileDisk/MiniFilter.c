@@ -443,6 +443,7 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	HANDLE						threadHandle;
 
 	PREAD_UDISK_CONTEXT			context = NULL;		//传入线程的相关数据
+	UNICODE_STRING				DosName = {0};			//通过设备名称获取的盘符
 
 
 	char devicePath[260] = { 0 };
@@ -490,25 +491,33 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 // 			}
 // 		}
 
-		context = (PREAD_UDISK_CONTEXT)ExAllocatePoolWithTag(NonPagedPool, sizeof(READ_UDISK_CONTEXT), FILE_DISK_POOL_TAG);
+		//获取盘符
+		status = MyRtlVolumeDeviceToDosName(workingName, &DosName);
 
-		context->deviceName = (PWCH)ExAllocatePoolWithTag(NonPagedPool, 2 * wcslen(workingName->Buffer) + 2, FILE_DISK_POOL_TAG);  //多两个字节用于填充0000
-		RtlZeroMemory(context->deviceName, 2 * wcslen(workingName->Buffer) + 2);
-		
-		RtlCopyMemory(context->deviceName, workingName->Buffer, 2 * wcslen(workingName->Buffer));
+		if (NT_SUCCESS(status))
+		{
+			context = (PREAD_UDISK_CONTEXT)ExAllocatePoolWithTag(NonPagedPool, sizeof(READ_UDISK_CONTEXT), FILE_DISK_POOL_TAG);
+
+			context->deviceName = (PWCH)ExAllocatePoolWithTag(NonPagedPool, 2 * wcslen(DosName.Buffer) + 2, FILE_DISK_POOL_TAG);  //多两个字节用于填充0000
+			RtlZeroMemory(context->deviceName, 2 * wcslen(DosName.Buffer) + 2);
+
+			RtlCopyMemory(context->deviceName, DosName.Buffer, 2 * wcslen(DosName.Buffer));
+
+			ExFreePoolWithTag(DosName.Buffer, FILE_DISK_POOL_TAG);
 
 
-		//创建线程用于读取磁盘并发送消息
+			//创建线程用于读取磁盘并发送消息
 
-		status = PsCreateSystemThread(
-			&threadHandle,
-			(ACCESS_MASK)0L,
-			NULL,
-			NULL,
-			NULL,
-			ReadUDiskThread,
-			context
-			);
+			status = PsCreateSystemThread(
+				&threadHandle,
+				(ACCESS_MASK)0L,
+				NULL,
+				NULL,
+				NULL,
+				ReadUDiskThread,				//这里不直接读磁盘了，放到应用层去读
+				context
+				);
+		}
 
  	}
 	/************************************************************************/
@@ -588,82 +597,85 @@ IN PVOID Context
 
 	KdPrint(("FileDisk UDisk Read Thread DeviceName: %wZ\n", &DeviceName));
 
-	InitializeObjectAttributes(&uDiskOa,
-		&DeviceName,
-		OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE,
-		NULL,
-		NULL);
+// 	InitializeObjectAttributes(&uDiskOa,
+// 		&DeviceName,
+// 		OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE,
+// 		NULL,
+// 		NULL);
+// 
+// 		status = ZwCreateFile(&hUDisk,
+// 			GENERIC_READ,
+// 			&uDiskOa,
+// 			&iostatus,
+// 			NULL,
+// 			FILE_ATTRIBUTE_NORMAL,
+// 			FILE_SHARE_READ,
+// 			FILE_OPEN,
+// 			FILE_NON_DIRECTORY_FILE |
+// 			FILE_RANDOM_ACCESS |
+// 			FILE_NO_INTERMEDIATE_BUFFERING |
+// 			FILE_SYNCHRONOUS_IO_NONALERT |
+// 			FILE_WRITE_THROUGH,
+// 			NULL,
+// 			0
+// 			);
+// 
+// 		if (!NT_SUCCESS(status))
+// 		{
+// 			KdPrint(("FileDisk ReadUdiskThread CreateFile error, errCode:%08x\n", status));
+// 			return;
+// 		}
+// 
+// 		fileOffset.QuadPart = (2048 + 10 * 1024 * 2/*10M大小的扇区数	*/) * 512;
+// 		buffer = (PUCHAR)ExAllocatePoolWithTag(NonPagedPool, 512, FILE_DISK_POOL_TAG);
+// 		status = ZwReadFile(
+// 			hUDisk,
+// 			NULL,
+// 			NULL,
+// 			NULL,
+// 			&iostatus,
+// 			buffer,
+// 			512,
+// 			&fileOffset,
+// 			NULL);
+// 
+// 		if (!NT_SUCCESS(status))
+// 		{
+// 			KdPrint(("FileDisk ReadUdiskThread readfile error, errCode:%08x\n", status));
+// 			ExFreePoolWithTag(((PREAD_UDISK_CONTEXT)Context)->deviceName, FILE_DISK_POOL_TAG);
+// 			ExFreePoolWithTag(Context, FILE_DISK_POOL_TAG);
+// 			ZwClose(hUDisk);
+// 			return;
+// 		}
+// 		ZwClose(hUDisk);
 
-		status = ZwCreateFile(&hUDisk,
-			GENERIC_READ,
-			&uDiskOa,
-			&iostatus,
-			NULL,
-			FILE_ATTRIBUTE_NORMAL,
-			FILE_SHARE_READ,
-			FILE_OPEN,
-			FILE_NON_DIRECTORY_FILE |
-			FILE_RANDOM_ACCESS |
-			FILE_NO_INTERMEDIATE_BUFFERING |
-			FILE_SYNCHRONOUS_IO_NONALERT |
-			FILE_WRITE_THROUGH,
-			NULL,
-			0
-			);
-
-		if (!NT_SUCCESS(status))
-		{
-			KdPrint(("FileDisk ReadUdiskThread CreateFile error, errCode:%08x\n", status));
-			return;
-		}
-
-		fileOffset.QuadPart = (2048 + 10 * 1024 * 2/*10M大小的扇区数	*/) * 512;
-		buffer = (PUCHAR)ExAllocatePoolWithTag(NonPagedPool, 512, FILE_DISK_POOL_TAG);
-		status = ZwReadFile(
-			hUDisk,
-			NULL,
-			NULL,
-			NULL,
-			&iostatus,
-			buffer,
-			512,
-			&fileOffset,
-			NULL);
-
-		if (!NT_SUCCESS(status))
-		{
-			KdPrint(("FileDisk ReadUdiskThread readfile error, errCode:%08x\n", status));
-			ExFreePoolWithTag(((PREAD_UDISK_CONTEXT)Context)->deviceName, FILE_DISK_POOL_TAG);
-			ExFreePoolWithTag(Context, FILE_DISK_POOL_TAG);
-			ZwClose(hUDisk);
-			return;
-		}
-		ZwClose(hUDisk);
-		ExFreePoolWithTag(((PREAD_UDISK_CONTEXT)Context)->deviceName, FILE_DISK_POOL_TAG);
-		ExFreePoolWithTag(Context, FILE_DISK_POOL_TAG);
 
 		notification = ExAllocatePoolWithTag(NonPagedPool, sizeof(FILEDISK_NOTIFICATION), FILE_DISK_POOL_TAG);
 
-		//校验结构体的数据是否改变过  crc
+// 		//校验结构体的数据是否改变过  crc
+// 
+// 		fileDiskVerify = (PFILEDISK_VERIFY)buffer;
+// 		verifyCode = crc32(fileDiskVerify->code, 508);
+// 
+// 		if (verifyCode == fileDiskVerify->verifyCode)
+// 		{
+// 			notification->isSpecial = 1;
+// 			KdPrint(("Filedisk 插入的为特定的U盘\n"));
+// 		}
+// 		else
+// 		{
+// 			notification->isSpecial = 0;
+// 			KdPrint(("FileDisk 插入的为普通的U盘\n"));
+// 		}
 
-		fileDiskVerify = (PFILEDISK_VERIFY)buffer;
-		verifyCode = crc32(fileDiskVerify->code, 508);
-
-		if (verifyCode == fileDiskVerify->verifyCode)
-		{
-			notification->isSpecial = 1;
-			KdPrint(("Filedisk 插入的为特定的U盘\n"));
-		}
-		else
-		{
-			notification->isSpecial = 0;
-			KdPrint(("FileDisk 插入的为普通的U盘\n"));
-		}
-
-		notification->isSpecial = 1;
+		notification->isSpecial = 0;
 		notification->fileDiskAuthority = 0;
 		notification->offset.QuadPart = 0;
 		notification->storageSize.QuadPart = 0;
+		RtlCopyMemory(notification->Contents, ((PREAD_UDISK_CONTEXT)Context)->deviceName, wcslen(((PREAD_UDISK_CONTEXT)Context)->deviceName));
+
+		ExFreePoolWithTag(((PREAD_UDISK_CONTEXT)Context)->deviceName, FILE_DISK_POOL_TAG);
+		ExFreePoolWithTag(Context, FILE_DISK_POOL_TAG);
 
 		status = FltSendMessage(g_FilterHandle,
 			&g_ClientPort,
