@@ -3,6 +3,7 @@
 #include "stdafx.h"
 #include <stdlib.h>
 #include "FileDiskDynamic.h"
+#include "DiskOption.h"
 
 HANDLE g_hPort, g_completion = INVALID_HANDLE_VALUE;
 
@@ -119,6 +120,46 @@ typedef struct _FILEDISK_REPLY_MESSAGE {
 // 	return 1;
 // }
 
+/************************************************************************
+ 判断刚才插入的u盘是否为特定的u盘
+ 传入盘符
+************************************************************************/
+BOOL IsSpecialUDisk(char driveLetter)
+{
+	DWORD	phyDiskNo = 0;
+
+	CHAR path[MAX_PATH] = { 0 };
+
+	if (!GetPhysicalNum(driveLetter, &phyDiskNo))
+	{
+		return FALSE;
+	}
+
+	sprintf(path, "\\\\.\\PHYSICALDRIVE%d", phyDiskNo);
+
+	HANDLE hDrive = CreateFileA(path,
+		GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_WRITE | FILE_SHARE_READ,
+		NULL,
+		OPEN_EXISTING,
+		FILE_FLAG_NO_BUFFERING,
+		NULL);
+	if (hDrive == INVALID_HANDLE_VALUE)
+	{
+		return FALSE;
+	}
+
+	char buffer[512] = { 0 };
+	DWORD readReturn = 0;
+	BOOL ret = ReadFile(hDrive, buffer, 512, &readReturn, NULL);
+	if (!ret)
+	{
+		CloseHandle(hDrive);
+		return FALSE;
+	}
+
+	return TRUE;
+}
 
 DWORD
 WINAPI
@@ -155,6 +196,7 @@ HRESULT indicating the status of thread exit.
 	DWORD bytesReturned = 0;
 
 	char outbuffer[512] = {0};
+	char driveLetter = 0;				//记录传递上来的盘符
 
 	message = (PFILEDISK_MESSAGE)malloc(sizeof(FILEDISK_MESSAGE));
 #pragma warning(push)
@@ -176,6 +218,8 @@ HRESULT indicating the status of thread exit.
 		}
 
 		notification = &message->Notification;
+
+		driveLetter = notification->Contents[0];
 
 		OutputDebugString((wchar_t *)&notification->Contents);
 
