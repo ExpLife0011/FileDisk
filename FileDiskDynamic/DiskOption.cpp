@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <winioctl.h>
-#include <ntddstor.h>
+//#include <ntddstor.h>
 
 #include "DiskOption.h"
 
@@ -63,9 +63,9 @@ BOOL LockVolum(char letter)
 		NULL);
 	if (hVolum == INVALID_HANDLE_VALUE)
 	{
-		CString str;
-		str.Format(L"dismountvolum createfile fail, error code: %d", GetLastError());
-		MessageBox(NULL, str, L"error", MB_OK);
+// 		CString str;
+// 		str.Format(L"dismountvolum createfile fail, error code: %d", GetLastError());
+// 		MessageBox(NULL, str, L"error", MB_OK);
 		CloseHandle(hVolum);
 		return FALSE;
 	}
@@ -73,13 +73,14 @@ BOOL LockVolum(char letter)
 	BOOL ret = FALSE;
 	// 	for (int i = 0; i < 20; i++)
 	// 	{
+	DWORD BytesReturned = 0;
 	ret = DeviceIoControl(hVolum,
 		FSCTL_LOCK_VOLUME,
 		NULL,
 		0,
 		NULL,
 		0,
-		NULL,
+		&BytesReturned,
 		NULL);
 
 	// 		if (ret == FALSE)
@@ -94,9 +95,9 @@ BOOL LockVolum(char letter)
 	// 	}
 	if (ret == FALSE)
 	{
-		CString str;
-		str.Format(L"dismountvolum lock volum fail, error code: %d", GetLastError());
-		MessageBox(NULL, str, L"error", MB_OK);
+// 		CString str;
+// 		str.Format(L"dismountvolum lock volum fail, error code: %d", GetLastError());
+// 		MessageBox(NULL, str, L"error", MB_OK);
 		CloseHandle(hVolum);
 		return FALSE;
 	}
@@ -129,9 +130,9 @@ BOOL UnlockVolume(char letter)
 
 	if (!ret)
 	{
-		CString str;
-		str.Format(L"unlock volume fail, error code :%d", GetLastError());
-//		MessageBox(NULL, str, L"error", MB_OK);
+// 		CString str;
+// 		str.Format(L"unlock volume fail, error code :%d", GetLastError());
+// //		MessageBox(NULL, str, L"error", MB_OK);
 		CloseHandle(hVolum);
 		return FALSE;
 	}
@@ -155,19 +156,21 @@ BOOL DisMountVolum(char letter)
 
 	BOOL ret = FALSE;
 
+	DWORD BytesReturned = 0;
+
 	ret = DeviceIoControl(hVolum,
 		FSCTL_DISMOUNT_VOLUME,
 		NULL,
 		0,
 		NULL,
 		0,
-		NULL,
+		&BytesReturned,
 		NULL);
 	if (ret == FALSE)
 	{
-		CString str;
-		str.Format(L"dismountvolum dismount volum fail, error code: %d", GetLastError());
-		MessageBox(NULL, str, L"error", MB_OK);
+// 		CString str;
+// 		str.Format(L"dismountvolum dismount volum fail, error code: %d", GetLastError());
+// 		MessageBox(NULL, str, L"error", MB_OK);
 		CloseHandle(hVolum);
 		return FALSE;
 	}
@@ -244,9 +247,9 @@ BOOL WritePhysicalDrive1(int num)
 			{
 				CloseHandle(hDrive);
 				DWORD errCode = GetLastError();
-				CString str;
-				str.Format(L"write 0 sector fail, error code %d", errCode);
-				MessageBox(NULL, str, L"error", MB_OK);
+// 				CString str;
+// 				str.Format(L"write 0 sector fail, error code %d", errCode);
+// 				MessageBox(NULL, str, L"error", MB_OK);
 				return FALSE;
 			}
 		}
@@ -257,9 +260,9 @@ BOOL WritePhysicalDrive1(int num)
 			{
 				CloseHandle(hDrive);
 				DWORD errCode = GetLastError();
-				CString str;
-				str.Format(L"write other sector fail, error code %d", errCode);
-				MessageBox(NULL, str, L"error", MB_OK);
+// 				CString str;
+// 				str.Format(L"write other sector fail, error code %d", errCode);
+// 				MessageBox(NULL, str, L"error", MB_OK);
 				return FALSE;
 			}
 		}
@@ -293,9 +296,9 @@ BOOL WritePhysicalDrive(char letter, DWORD num, PDRIVEINFO driveInfo)
 
 	if (hDrive == INVALID_HANDLE_VALUE)
 	{
-		CString str;
-		str.Format(L"create physical Drive fail, error code :%d", GetLastError());
-		MessageBox(NULL, str, L"error", MB_OK);
+// 		CString str;
+// 		str.Format(L"create physical Drive fail, error code :%d", GetLastError());
+// 		MessageBox(NULL, str, L"error", MB_OK);
 		return FALSE;
 	}
 
@@ -337,9 +340,9 @@ BOOL WritePhysicalDrive(char letter, DWORD num, PDRIVEINFO driveInfo)
 			{
 				CloseHandle(hDrive);
 				DWORD errCode = GetLastError();
-				CString str;
-				str.Format(L"write 0 sector fail, error code %d", errCode);
-				MessageBox(NULL, str, L"error", MB_OK);
+// 				CString str;
+// 				str.Format(L"write 0 sector fail, error code %d", errCode);
+// 				MessageBox(NULL, str, L"error", MB_OK);
 				return FALSE;
 			}
 // 		}
@@ -386,10 +389,11 @@ BOOL GetPhysicalDriveInfo(DWORD physicalNum, PDRIVEINFO DriveInfo)
 		NULL);
 	if (hDrive == INVALID_HANDLE_VALUE)
 	{
-		CString str;
-		str.Format(L"Drive info error code : %d", GetLastError());
+// 		CString str;
+// 		str.Format(L"Drive info error code : %d", GetLastError());
+// 		MessageBox(NULL, str, L"error", MB_OK);
 		CloseHandle(hDrive);
-		MessageBox(NULL, str, L"error", MB_OK);
+
 		return FALSE;
 	}
 
@@ -406,10 +410,11 @@ BOOL GetPhysicalDriveInfo(DWORD physicalNum, PDRIVEINFO DriveInfo)
 		NULL);
 	if (!ret)
 	{
-		CString str;
-		str.Format(L"Drive info error code: %d", GetLastError());
+// 		CString str;
+// 		str.Format(L"Drive info error code: %d", GetLastError());
+// 		MessageBox(NULL, str, L"error", MB_OK);
 		CloseHandle(hDrive);
-		MessageBox(NULL, str, L"error", MB_OK);
+
 		return FALSE;
 	}
 
@@ -425,14 +430,14 @@ BOOL GetPhysicalDriveInfo(DWORD physicalNum, PDRIVEINFO DriveInfo)
 	DriveInfo->SectorsPerTrack = SectorsPerTrack;
 	DriveInfo->BytesPerSector = BytesPerSector;
 
-	CString str;
-	str.Format(L"diskSize:%lld\r\ncylinders:%lld\r\nTracksPerCylinder:%ld\r\nSectorsPerTrack:%ld\r\nBytesPerSector:%ld\r\n",
-		diskSize,
-		cylinders,
-		TracksPerCylinder,
-		SectorsPerTrack,
-		BytesPerSector);
-	MessageBox(NULL, str, L"error", MB_OK);
+// 	CString str;
+// 	str.Format(L"diskSize:%lld\r\ncylinders:%lld\r\nTracksPerCylinder:%ld\r\nSectorsPerTrack:%ld\r\nBytesPerSector:%ld\r\n",
+// 		diskSize,
+// 		cylinders,
+// 		TracksPerCylinder,
+// 		SectorsPerTrack,
+// 		BytesPerSector);
+// 	MessageBox(NULL, str, L"error", MB_OK);
 	CloseHandle(hDrive);
 	return TRUE;
 }
@@ -534,9 +539,9 @@ BOOL GetAllDrive(char * letterList, DWORD * count)
 	DWORD retValue = GetLogicalDriveStringsA(MAX_PATH, buffer);
 	if (!retValue)
 	{
-		CString str;
-		str.Format(L"GetLogicalDriveString fail,error code: %d", GetLastError());
-		MessageBox(NULL, str, L"error", MB_OK);
+// 		CString str;
+// 		str.Format(L"GetLogicalDriveString fail,error code: %d", GetLastError());
+// 		MessageBox(NULL, str, L"error", MB_OK);
 		return FALSE;
 	}
 
@@ -764,9 +769,9 @@ DWORD DestroyDisk(DWORD physicalDriveNumber)
 	);
 	if (hDevice == INVALID_HANDLE_VALUE) // cannot open the drive
 	{
-		CString str;
-		str.Format(L"destroy disk createfile error code :%d", GetLastError());
-		MessageBox(NULL, str, L"error", MB_OK);
+// 		CString str;
+// 		str.Format(L"destroy disk createfile error code :%d", GetLastError());
+// 		MessageBox(NULL, str, L"error", MB_OK);
 		//fprintf(stderr, "CreateFile() Error: %ld\n", GetLastError());
 		return DWORD(-1);
 	}
@@ -783,9 +788,9 @@ DWORD DestroyDisk(DWORD physicalDriveNumber)
 	);
 	if (!result)
 	{
-		CString str;
-		str.Format(L"destroy disk disk delete drive layout error code :%d", GetLastError());
-		MessageBox(NULL, str, L"error", MB_OK);
+// 		CString str;
+// 		str.Format(L"destroy disk disk delete drive layout error code :%d", GetLastError());
+// 		MessageBox(NULL, str, L"error", MB_OK);
 		//fprintf(stderr, "IOCTL_DISK_DELETE_DRIVE_LAYOUT Error: %ld\n", GetLastError());
 		(void)CloseHandle(hDevice);
 		return DWORD(-1);
@@ -804,9 +809,9 @@ DWORD DestroyDisk(DWORD physicalDriveNumber)
 	);
 	if (!result)
 	{
-		CString str;
-		str.Format(L"destroy disk disk update properties error code :%d", GetLastError());
-		MessageBox(NULL, str, L"error", MB_OK);
+// 		CString str;
+// 		str.Format(L"destroy disk disk update properties error code :%d", GetLastError());
+// 		MessageBox(NULL, str, L"error", MB_OK);
 		fprintf(stderr, "IOCTL_DISK_UPDATE_PROPERTIES Error: %ld\n", GetLastError());
 		(void)CloseHandle(hDevice);
 		return DWORD(-1);
@@ -832,9 +837,9 @@ BOOL HaveReserveSectors(DWORD physicalDriveNumber)
 		NULL);
 	if (hDrive == INVALID_HANDLE_VALUE)
 	{
-		CString str;
-		str.Format(L"reserve sector create file error, errcode : %d", GetLastError());
-		MessageBox(NULL, str, L"error", MB_OK);
+// 		CString str;
+// 		str.Format(L"reserve sector create file error, errcode : %d", GetLastError());
+// 		MessageBox(NULL, str, L"error", MB_OK);
 		return FALSE;
 	}
 
@@ -843,9 +848,9 @@ BOOL HaveReserveSectors(DWORD physicalDriveNumber)
 	BOOL ret = ReadFile(hDrive, buffer, SECTORLENGTH, &readReturn, NULL);
 	if (!ret)
 	{
-		CString str;
-		str.Format(L"reserve sector read file error, errcode:%d", GetLastError());
-		MessageBox(NULL, str, L"error", MB_OK);
+// 		CString str;
+// 		str.Format(L"reserve sector read file error, errcode:%d", GetLastError());
+// 		MessageBox(NULL, str, L"error", MB_OK);
 		CloseHandle(hDrive);
 		return FALSE;
 	}
@@ -856,16 +861,26 @@ BOOL HaveReserveSectors(DWORD physicalDriveNumber)
 
 //	MessageBoxA(NULL, str, "111", MB_OK);
 
-	if (strncmp(str, "NTFS", 4) == 0)
+	if ((BYTE)buffer[510] == 0x55 && (BYTE)buffer[511] == 0xAA)
 	{
+		if (strncmp(str, "NTFS", 4) == 0 && (BYTE)buffer[510] == 0x55 && (BYTE)buffer[511] == 0xAA)
+		{
+			CloseHandle(hDrive);
+			return FALSE;
+		}
+		else if (strncmp(str, "MSDOS5.0", 8) == 0 && (BYTE)buffer[510] == 0x55 && (BYTE)buffer[511] == 0xAA)
+		{
+			CloseHandle(hDrive);
+			return FALSE;
+		}
+		CloseHandle(hDrive);
+		return TRUE;
+	}
+	else
+	{
+		//如果不是的话，说明被加密
 		CloseHandle(hDrive);
 		return FALSE;
 	}
-	else if (strncmp(str, "MSDOS5.0", 8) == 0)
-	{
-		CloseHandle(hDrive);
-		return FALSE;
-	}
-	CloseHandle(hDrive);
-	return TRUE;
+
 }
