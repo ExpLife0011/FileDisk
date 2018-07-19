@@ -32,7 +32,8 @@ extern "C" {
 
 __declspec(dllexport)	int InitialCommunicationPort(void);
 __declspec(dllexport)   int FDSendMessage(PVOID InputBuffer);
-
+__declspec(dllexport)	int FileDiskMount(int DeviceNumber, POPEN_FILE_INFORMATION OpenFileInformation, BOOLEAN CdImage);
+__declspec(dllexport)	int FileDiskUmount(char DriveLetter);
 
 
 #ifdef __cplusplus

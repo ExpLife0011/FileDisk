@@ -5,6 +5,8 @@
 #include "FileDiskDynamic.h"
 #include "DiskOption.h"
 
+#include "crc32.h"
+
 HANDLE g_hPort, g_completion = INVALID_HANDLE_VALUE;
 
 
@@ -22,6 +24,12 @@ typedef struct _FILEDISK_REPLY {
 	ULONG			fileDiskAuthority;			//应用层返回的权限
 
 } FILEDISK_REPLY, *PFILEDISK_REPLY;
+
+typedef struct _FILEDISK_VERIFY_					//磁盘开始的512字节用于校验是否被改动
+{
+	BYTE code[508];
+	ULONG32 verifyCode;
+}FILEDISK_VERIFY, *PFILEDISK_VERIFY;
 
 #pragma pack(1)
 
@@ -158,6 +166,23 @@ BOOL IsSpecialUDisk(char driveLetter)
 		return FALSE;
 	}
 
+	PFILEDISK_VERIFY fileDiskVerify;
+	fileDiskVerify = (PFILEDISK_VERIFY)buffer;
+
+	DWORD	verifyCode = fileDiskVerify->verifyCode;
+
+	verifyCode = crc32(fileDiskVerify->code, 508);
+
+	if (verifyCode == fileDiskVerify->verifyCode)
+	{
+		return TRUE;
+	}
+	else
+	{
+		return FALSE;
+	}
+
+
 	return TRUE;
 }
 
@@ -220,20 +245,20 @@ HRESULT indicating the status of thread exit.
 		notification = &message->Notification;
 
 		driveLetter = notification->Contents[0];
-
 		OutputDebugString((wchar_t *)&notification->Contents);
 
+
+		BOOL isSpecial = IsSpecialUDisk(driveLetter);
+
+		
 		replyMessage.ReplyHeader.Status = 0;
 		replyMessage.ReplyHeader.MessageId = message->MessageHeader.MessageId;
 
-
-		replyMessage.Reply.fileDiskAuthority = 2;
+		//将专用介质的权限给驱动
+		replyMessage.Reply.fileDiskAuthority = 2/*这里*/;
 
 		printf("Replying message, fileDiskAuthority: %d\n", replyMessage.Reply.fileDiskAuthority);
 
-// 		hr = FilterReplyMessage(g_hPort,
-// 			(PFILTER_REPLY_HEADER)&replyMessage,
-// 			sizeof(FILTER_REPLY_HEADER) + sizeof(FILEDISK_REPLY));
 
 		if (SUCCEEDED(hr)) {
 

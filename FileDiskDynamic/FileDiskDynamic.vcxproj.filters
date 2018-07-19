@@ -33,6 +33,12 @@
     <ClInclude Include="PartitionEntry.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="crc32.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="filedisk.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -45,6 +51,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="DiskOption.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="crc32.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
