@@ -7,8 +7,13 @@
 
 #include "crc32.h"
 
-HANDLE g_hPort, g_completion = INVALID_HANDLE_VALUE;
+#include <ShlObj.h>
+#include <winioctl.h>
+#include <stdio.h>
 
+HANDLE g_hPort, g_completion = INVALID_HANDLE_VALUE;
+//U盘偏移	10M+2048保留扇区+1024字节
+#define UDISKOFFSET			(10485760 + 1024 + 1048576)
 
 typedef struct _FILEDISK_NOTIFICATION
 {
@@ -74,59 +79,168 @@ typedef struct _FILEDISK_REPLY_MESSAGE {
 } FILEDISK_REPLY_MESSAGE, *PFILEDISK_REPLY_MESSAGE;
 
 
+/************************************************************************/
+/* 定义一些内存中的结构体                                                 */
+
+typedef long	NTSTATUS;
+typedef struct _UNICODE_STRING {
+	USHORT Length;
+	USHORT MaximumLength;
+#ifdef MIDL_PASS
+	[size_is(MaximumLength / 2), length_is((Length) / 2)] USHORT * Buffer;
+#else // MIDL_PASS
+	PWSTR  Buffer;
+#endif // MIDL_PASS
+} UNICODE_STRING;
+typedef UNICODE_STRING *PUNICODE_STRING;
+typedef const UNICODE_STRING *PCUNICODE_STRING;
+#define UNICODE_NULL ((WCHAR)0) // winnt
+
+typedef struct _OBJECT_ATTRIBUTES {
+	ULONG Length;
+	HANDLE RootDirectory;
+	PUNICODE_STRING ObjectName;
+	ULONG Attributes;
+	PVOID SecurityDescriptor;        // Points to type SECURITY_DESCRIPTOR
+	PVOID SecurityQualityOfService;  // Points to type SECURITY_QUALITY_OF_SERVICE
+} OBJECT_ATTRIBUTES;
+typedef OBJECT_ATTRIBUTES *POBJECT_ATTRIBUTES;
+typedef CONST OBJECT_ATTRIBUTES *PCOBJECT_ATTRIBUTES;
+
+typedef struct _IO_STATUS_BLOCK {
+	union {
+		NTSTATUS Status;
+		PVOID Pointer;
+	};
+
+	ULONG_PTR Information;
+} IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
+
+EXTERN_C
+{
+	NTSYSAPI
+	NTSTATUS
+	WINAPI
+	NtCreateFile(
+	OUT PHANDLE FileHandle,
+	IN ACCESS_MASK DesiredAccess,
+	IN POBJECT_ATTRIBUTES ObjectAttributes,
+	OUT PIO_STATUS_BLOCK IoStatusBlock,
+	IN PLARGE_INTEGER AllocationSize OPTIONAL,
+	IN ULONG FileAttributes,
+	IN ULONG ShareAccess,
+	IN ULONG CreateDisposition,
+	IN ULONG CreateOptions,
+	IN PVOID EaBuffer OPTIONAL,
+	IN ULONG EaLength
+	);
+
+	NTSYSAPI
+		ULONG
+		WINAPI
+		RtlNtStatusToDosError(
+		NTSTATUS Status
+		);
+
+	NTSYSAPI
+		NTSTATUS
+		WINAPI
+		NtClose(
+		HANDLE Handle
+		);
+
+};
+
+
+#define RtlInitUnicodeString(_u,_w)     {                                       \
+    (_u)->Buffer=(_w);                                                          \
+    (_u)->Length=static_cast<USHORT>( lstrlenW(_w)*sizeof( UNICODE_NULL ) );    \
+    (_u)->MaximumLength=(_u)->Length+sizeof( UNICODE_NULL );                    \
+}
+
+#define NT_SUCCESS(_RS)     (0<=(_RS))
 
 /************************************************************************/
-/* 监控是否有U盘插入                                                      */
-/************************************************************************/
-// DWORD WINAPI MessageWorker(IN LPVOID pParam)
-// {
-// 
-// 	HRESULT                          hr = S_OK;
-// 	PFILEDISK_NOTIFICATION            notification = NULL;
-// 	PFILEDISK_MESSAGE				   message = NULL;
-// 	FILEDISK_REPLY_MESSAGE           replyMessage = { 0 };
-// 
-// 	message = (PFILEDISK_MESSAGE)malloc(sizeof(PFILEDISK_MESSAGE));
-// 	if (NULL == message)
-// 		return 0x0L;
-// 
-// 	while (TRUE)
-// 	{
-// 		memset(&(message->Notification), 0, sizeof(message->Notification));
-// 
-// 		//
-// 		//  Request messages from the filter driver.
-// 		//
-// 		OutputDebugString(L"***********获取驱动层的消息*************");
-// 		hr = FilterGetMessage(
-// 			g_hPort,
-// 			&message->MessageHeader,
-// 			FIELD_OFFSET(FILEDISK_MESSAGE, Ovlp),
-// 			NULL);
-// 
-// 		if (!SUCCEEDED(hr))
-// 		{
-// 			continue;
-// 		}
-// 
-// 		replyMessage.ReplyHeader.Status = 0;
-// 		replyMessage.ReplyHeader.MessageId = message->MessageHeader.MessageId;
-// 
-// 		replyMessage.Reply.fileDiskAuthority = 2;
-// 
-// 
-// 		hr = FilterReplyMessage(
-// 			g_hPort,
-// 			(PFILTER_REPLY_HEADER)&replyMessage,
-// 			sizeof(replyMessage)
-// 			);
-// 		OutputDebugString(L"***********收到并且返回***********");
-// 	}
-// 
-// 	if (NULL != message) { free(message); }
-// 
-// 	return 1;
-// }
+
+
+//判断设备是否可用
+BOOL QueryDeviceStatus(DWORD DeviceNumber)
+{
+	HANDLE                  hEnDisk;
+	WCHAR                   wsDeviceName[MAX_PATH];
+	OBJECT_ATTRIBUTES       ObjectAttributes;
+	UNICODE_STRING          usDeviceName;
+	IO_STATUS_BLOCK         IoSB;
+	NTSTATUS                Status;
+
+	BOOLEAN fMountStatus;
+	DWORD   dwBytesReturned;
+	DWORD   dwSaveErrorCode;
+
+	swprintf(wsDeviceName, L"\\Device\\FileDisk%u", DeviceNumber);
+
+	RtlInitUnicodeString(&usDeviceName, wsDeviceName);
+
+	ObjectAttributes.Attributes = 0x40; // BJ_CASE_INSENSITIVE;
+	ObjectAttributes.Length = sizeof(ObjectAttributes);
+	ObjectAttributes.ObjectName = &usDeviceName;
+	ObjectAttributes.RootDirectory = NULL;
+	ObjectAttributes.SecurityDescriptor = NULL;
+	ObjectAttributes.SecurityQualityOfService = NULL;
+
+	Status = NtCreateFile(&hEnDisk,
+		SYNCHRONIZE,
+		&ObjectAttributes,
+		&IoSB,
+		NULL,
+		FILE_ATTRIBUTE_NORMAL,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		0x1, //FILE_OPEN,
+		0x8 | 0x20, // FILE_NO_INTERMEDIATE_BUFFERING| FILE_SYNCHRONOUS_IO_NONALERT,
+		NULL,
+		0);
+
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError(RtlNtStatusToDosError(Status));
+		return FALSE;
+	}
+
+	if (!DeviceIoControl(hEnDisk,
+		IOCTL_FILE_DISK_QUERY_DEVICE_STATUS,
+		NULL,
+		0,
+		&fMountStatus,
+		sizeof(fMountStatus),
+		&dwBytesReturned,
+		NULL))
+	{
+		dwSaveErrorCode = GetLastError();
+		NtClose(hEnDisk);
+		SetLastError(dwSaveErrorCode);
+
+		return (BOOL)fMountStatus;
+	}
+
+	NtClose(hEnDisk);
+	SetLastError(NOERROR);
+
+	return TRUE;
+}
+
+//获得一个可用的设备号
+DWORD GetAvailableDeviceNumber()
+{
+	DWORD deviceCount = 4;		//默认4个
+	for (int i = 0; i < deviceCount; i++)
+	{
+		if (QueryDeviceStatus(i))
+		{
+			return i;
+		}
+	}
+	return -1;
+}
 
 /************************************************************************
  判断刚才插入的u盘是否为特定的u盘
@@ -238,14 +352,14 @@ HRESULT indicating the status of thread exit.
 
 		if (!SUCCEEDED(hr)) {
 
-			OutputDebugString(L"FilterGetMessage Error\n");
+			OutputDebugStringA("FilterGetMessage Error\n");
 
 		}
 
 		notification = &message->Notification;
 
 		driveLetter = notification->Contents[0];
-		OutputDebugString((wchar_t *)&notification->Contents);
+		OutputDebugStringA((char *)&notification->Contents);
 
 
 		BOOL isSpecial = IsSpecialUDisk(driveLetter);
@@ -259,8 +373,76 @@ HRESULT indicating the status of thread exit.
 
 		printf("Replying message, fileDiskAuthority: %d\n", replyMessage.Reply.fileDiskAuthority);
 
+		if (isSpecial)
+		{
+			//如果是指定的u盘，则直接挂出来
 
-		if (SUCCEEDED(hr)) {
+			POPEN_FILE_INFORMATION  OpenFileInformation;
+			char FileName[MAX_PATH] = { 0 };
+			DWORD PhyDriveNo = 0;
+			DRIVEINFO DriveInfo = {0};
+			GetPhysicalNum(driveLetter, &PhyDriveNo);
+
+			//获取磁盘相关信息
+			GetPhysicalDriveInfo(PhyDriveNo, &DriveInfo);
+
+			sprintf(FileName, "\\??\\physicaldrive%d", PhyDriveNo);
+			OpenFileInformation =
+				(POPEN_FILE_INFORMATION)malloc(sizeof(OPEN_FILE_INFORMATION) + strlen(FileName) + 7);
+
+			if (OpenFileInformation == NULL)
+			{
+				return -1;
+			}
+
+			memset(
+				OpenFileInformation,
+				0,
+				sizeof(OPEN_FILE_INFORMATION) + strlen(FileName) + 7
+				);
+
+			if (FileName[0] == '\\')
+			{
+				if (FileName[1] == '\\')
+					// \\server\share\path\filedisk.img
+				{
+					strcpy(OpenFileInformation->FileName, "\\??\\UNC");
+					strcat(OpenFileInformation->FileName, FileName + 1);
+				}
+				else
+					// \Device\Harddisk0\Partition1\path\filedisk.img
+				{
+					strcpy(OpenFileInformation->FileName, FileName);
+				}
+			}
+			else
+				// c:\path\filedisk.img
+			{
+				strcpy(OpenFileInformation->FileName, "\\??\\");
+				strcat(OpenFileInformation->FileName, FileName);
+			}
+
+			OpenFileInformation->FileNameLength =
+				(USHORT)strlen(OpenFileInformation->FileName);
+
+			OpenFileInformation->DriveLetter = driveLetter;
+			OpenFileInformation->PhysicalDrive = TRUE;
+			OpenFileInformation->FileOffset.QuadPart = UDISKOFFSET;
+			OpenFileInformation->ReadOnly = FALSE;
+			//u盘的大小
+			OpenFileInformation->FileSize.QuadPart = DriveInfo.DiskSize - UDISKOFFSET;
+
+			DWORD DeviceNumber = GetAvailableDeviceNumber();
+			if (DeviceNumber < 0)
+			{
+				return -1;
+			}
+
+			FileDiskMount(DeviceNumber, OpenFileInformation, FALSE);		//挂载u盘
+		}
+
+		if (SUCCEEDED(hr)) 
+		{
 
 			printf("Replied message\n");
 			OutputDebugStringA("Replied message\n");
@@ -274,7 +456,8 @@ HRESULT indicating the status of thread exit.
 				&bytesReturned);
 
 		}
-		else {
+		else 
+		{
 
 			sprintf(outbuffer, "Scanner: Error replying message. Error = 0x%X\n", hr);
 			OutputDebugStringA(outbuffer);
@@ -340,4 +523,225 @@ extern "C" __declspec(dllexport) int FDSendMessage(PVOID InputBuffer)
 	return 0;
 }
 
+//挂载磁盘
+__declspec(dllexport)	
+int FileDiskMount(int DeviceNumber, 
+POPEN_FILE_INFORMATION OpenFileInformation, 
+BOOLEAN CdImage)
+{
+	char    VolumeName[] = "\\\\.\\ :";
+	char    DriveName[] = " :\\";
+	char    DeviceName[255];
+	HANDLE  Device;
+	DWORD   BytesReturned;
 
+	VolumeName[4] = OpenFileInformation->DriveLetter;
+	DriveName[0] = OpenFileInformation->DriveLetter;
+
+	Device = CreateFileA(
+		VolumeName,
+		GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		NULL,
+		OPEN_EXISTING,
+		FILE_FLAG_NO_BUFFERING,
+		NULL
+		);
+
+	if (Device != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(Device);
+		SetLastError(ERROR_BUSY);
+		fprintf(stdout, "FileDisk:CreateFile error,errcode:%d\n", GetLastError());
+		return -1;
+	}
+
+	if (CdImage)
+	{
+		sprintf(DeviceName, DEVICE_NAME_PREFIX "Cd" "%u", DeviceNumber);
+	}
+	else
+	{
+		sprintf(DeviceName, DEVICE_NAME_PREFIX "%u", DeviceNumber);
+	}
+
+	if (!DefineDosDeviceA(
+		DDD_RAW_TARGET_PATH,
+		&VolumeName[4],
+		DeviceName
+		))
+	{
+		fprintf(stdout, "FileDisk:DefineDosDevice error,errcode:%d\n", GetLastError());
+		return -1;
+	}
+
+	Device = CreateFileA(
+		VolumeName,
+		GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		NULL,
+		OPEN_EXISTING,
+		FILE_FLAG_NO_BUFFERING,
+		NULL
+		);
+
+	if (Device == INVALID_HANDLE_VALUE)
+	{
+		DefineDosDeviceA(DDD_REMOVE_DEFINITION, &VolumeName[4], NULL);
+		fprintf(stdout, "FileDisk:CreateFile1 error,errcode:%d\n", GetLastError());
+		return -1;
+	}
+
+	if (!DeviceIoControl(
+		Device,
+		IOCTL_FILE_DISK_OPEN_FILE,
+		OpenFileInformation,
+		sizeof(OPEN_FILE_INFORMATION) + OpenFileInformation->FileNameLength - 1,
+		NULL,
+		0,
+		&BytesReturned,
+		NULL
+		))
+	{
+		DefineDosDeviceA(DDD_REMOVE_DEFINITION, &VolumeName[4], NULL);
+		CloseHandle(Device);
+		fprintf(stdout, "FileDisk:DeviceIoControl error,errcode:%d\n", GetLastError());
+		return -1;
+	}
+
+	CloseHandle(Device);
+
+	SHChangeNotify(SHCNE_DRIVEADD, SHCNF_PATH, DriveName, NULL);
+
+	return 0;
+}
+
+//卸载磁盘
+__declspec(dllexport)
+int FileDiskUmount(char DriveLetter)
+{
+	char    VolumeName[] = "\\\\.\\ :";
+	char    DriveName[] = " :\\";
+	HANDLE  Device;
+	DWORD   BytesReturned;
+
+	VolumeName[4] = DriveLetter;
+	DriveName[0] = DriveLetter;
+
+	Device = CreateFileA(
+		VolumeName,
+		GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		NULL,
+		OPEN_EXISTING,
+		FILE_FLAG_NO_BUFFERING,
+		NULL
+		);
+
+	if (Device == INVALID_HANDLE_VALUE)
+	{
+		fprintf(stderr, "FilediskUmount CreateFile error, errcode: %d\n", GetLastError());
+		return -1;
+	}
+
+
+	if (!DeviceIoControl(
+		(HANDLE)Device,            // handle to a volume
+		(DWORD)FSCTL_DISMOUNT_VOLUME,   // dwIoControlCode
+		NULL,                        // lpInBuffer
+		0,                           // nInBufferSize
+		NULL,                        // lpOutBuffer
+		0,                           // nOutBufferSize
+		&BytesReturned,   // number of bytes returned
+		NULL  // OVERLAPPED structure
+		))
+	{
+		CloseHandle(Device);
+		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_DISMOUNT_VOLUME error, errcode: %d\n", GetLastError());
+		return -1;
+	}
+
+
+	//     if (!DeviceIoControl(
+	//         Device,
+	//         FSCTL_LOCK_VOLUME,
+	//         NULL,
+	//         0,
+	//         NULL,
+	//         0,
+	//         &BytesReturned,
+	//         NULL
+	//         ))
+	//     {
+	//         PrintLastError(&VolumeName[4]);
+	//         CloseHandle(Device);
+	// 		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_LOCK_VOLUME error, errcode: %d\n", GetLastError());
+	//         return -1;
+	//     }
+
+	if (!DeviceIoControl(
+		Device,
+		IOCTL_FILE_DISK_CLOSE_FILE,
+		NULL,
+		0,
+		NULL,
+		0,
+		&BytesReturned,
+		NULL
+		))
+	{
+		CloseHandle(Device);
+		fprintf(stderr, "FilediskUmount DeviceIoControl IOCTL_FILE_DISK_CLOSE_FILE error, errcode: %d\n", GetLastError());
+		return -1;
+	}
+
+	//     if (!DeviceIoControl(
+	//         Device,
+	//         FSCTL_DISMOUNT_VOLUME,
+	//         NULL,
+	//         0,
+	//         NULL,
+	//         0,
+	//         &BytesReturned,
+	//         NULL
+	//         ))
+	//     {
+	//         PrintLastError(&VolumeName[4]);
+	//         CloseHandle(Device);
+	// 		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_DISMOUNT_VOLUME error, errcode: %d\n", GetLastError());
+	// 		return -1;
+	//     }
+
+	//     if (!DeviceIoControl(
+	//         Device,
+	//         FSCTL_UNLOCK_VOLUME,
+	//         NULL,
+	//         0,
+	//         NULL,
+	//         0,
+	//         &BytesReturned,
+	//         NULL
+	//         ))
+	//     {
+	//         PrintLastError(&VolumeName[4]);
+	//         CloseHandle(Device);
+	// 		fprintf(stderr, "FilediskUmount DeviceIoControl FSCTL_UNLOCK_VOLUME error, errcode: %d\n", GetLastError());
+	// 		return -1;
+	//     }
+
+	CloseHandle(Device);
+
+	if (!DefineDosDeviceA(
+		DDD_REMOVE_DEFINITION,
+		&VolumeName[4],
+		NULL
+		))
+	{
+		fprintf(stderr, "FilediskUmount DefineDosDevice error, errcode: %d\n", GetLastError());
+		return -1;
+	}
+
+	SHChangeNotify(SHCNE_DRIVEREMOVED, SHCNF_PATH, DriveName, NULL);
+
+	return 0;
+}

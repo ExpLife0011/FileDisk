@@ -200,7 +200,7 @@ BOOL WritePhysicalDrive1(int num)
 	{
 		DWORD errCode = GetLastError();
 		CloseHandle(hDrive);
-		MessageBox(NULL, L"physical drive open failed", L"error", MB_OK);
+		MessageBoxW(NULL, L"physical drive open failed", L"error", MB_OK);
 		return FALSE;
 	}
 
@@ -271,7 +271,7 @@ BOOL WritePhysicalDrive1(int num)
 
 	CloseHandle(hDrive);
 
-	MessageBox(NULL, L"complete disk format", L"notice", MB_OK);
+	MessageBoxW(NULL, L"complete disk format", L"notice", MB_OK);
 
 // 	char cmd[MAX_PATH] = { 0 };
 // 	sprintf(cmd, "format %c: /FS:NTFS /Q /Y", g_letter);
@@ -581,7 +581,7 @@ BOOL GetPhysicalNum(char letter, DWORD * num)
 	if (hDevice == INVALID_HANDLE_VALUE)
 	{
 		DWORD errCode = GetLastError();
-		MessageBox(NULL, L"can not createfile", L"error", MB_OK);
+		MessageBoxW(NULL, L"can not createfile", L"error", MB_OK);
 		return FALSE;
 	}
 
@@ -598,7 +598,7 @@ BOOL GetPhysicalNum(char letter, DWORD * num)
 
 	if (!result)
 	{
-		MessageBox(NULL, L"get device number error", L"error", MB_OK);
+		MessageBoxW(NULL, L"get device number error", L"error", MB_OK);
 		return FALSE;
 	}
 // 	CString strNum;

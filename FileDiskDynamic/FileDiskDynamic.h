@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <FltUser.h>
+#include "filedisk.h"
 
 // #pragma comment(lib, "user32.lib")
 // #pragma comment(lib, "kernel32.lib")
@@ -34,7 +35,9 @@ __declspec(dllexport)	int InitialCommunicationPort(void);
 __declspec(dllexport)   int FDSendMessage(PVOID InputBuffer);
 __declspec(dllexport)	int FileDiskMount(int DeviceNumber, POPEN_FILE_INFORMATION OpenFileInformation, BOOLEAN CdImage);
 __declspec(dllexport)	int FileDiskUmount(char DriveLetter);
-
+BOOL IsSpecialUDisk(char driveLetter);
+BOOL QueryDeviceStatus(DWORD DeviceNumber);
+DWORD GetAvailableDeviceNumber();
 
 #ifdef __cplusplus
 }

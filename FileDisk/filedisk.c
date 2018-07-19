@@ -353,7 +353,7 @@ ZwAdjustPrivilegesToken (
 HANDLE dir_handle;
 
 typedef struct _DEVICE_EXTENSION {
-    BOOLEAN                     media_in_device;
+    BOOLEAN                     media_in_device;			//用来判断此设备有没有被挂载磁盘，设备可用性
     UNICODE_STRING              device_name;
     ULONG                       device_number;
     DEVICE_TYPE                 device_type;
@@ -1590,7 +1590,17 @@ FileDiskDeviceControl (
             Irp->IoStatus.Information = 0;
             break;
         }
-    default:
+    
+	//获取设备是否可用
+	case IOCTL_FILE_DISK_QUERY_DEVICE_STATUS:
+	{
+		*(PBOOLEAN)Irp->AssociatedIrp.SystemBuffer = device_extension->media_in_device;
+
+		Irp->IoStatus.Status = STATUS_SUCCESS;
+		Irp->IoStatus.Information = sizeof(BOOLEAN);
+		break;
+	}
+	default:
         {
             KdPrint((
                 "FileDisk: Unknown IoControlCode %#x\n",

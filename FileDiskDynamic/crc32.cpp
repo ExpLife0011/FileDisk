@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "crc32.h"
 
 
