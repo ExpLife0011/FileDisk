@@ -38,6 +38,7 @@ __declspec(dllexport)	int FileDiskUmount(char DriveLetter);
 BOOL IsSpecialUDisk(char driveLetter);
 BOOL QueryDeviceStatus(DWORD DeviceNumber);
 DWORD GetAvailableDeviceNumber();
+__declspec(dllexport)	BOOL MakeDisk(char DriveLetter);
 
 #ifdef __cplusplus
 }

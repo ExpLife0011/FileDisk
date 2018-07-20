@@ -33,6 +33,9 @@ BOOL WritePhysicalDrive1(int num);
 //主要功能是在0扇区构造MBR，并将其后的2047个扇区清空 
 BOOL WritePhysicalDrive(char letter, DWORD num, PDRIVEINFO driveInfo);
 
+//开始写磁盘  磁盘分区只写10M大小
+BOOL WriteSpecialUDisk(char letter, DWORD num, PDRIVEINFO driveInfo);
+
 
 //强制卸载卷
 BOOL DisMountVolum(char letter);

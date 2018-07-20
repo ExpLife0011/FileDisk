@@ -60,7 +60,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <OutputFile>$(OutDir)FileDisk$(TargetExt)</OutputFile>
       <ProgramDatabaseFile>$(OutDir)FileDisk.pdb</ProgramDatabaseFile>
-      <AdditionalDependencies>fltLib.lib;fltMgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>fltLib.lib;fltMgr.lib;ntdll.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(OutDir)FileDisk.lib</ImportLibrary>
     </Link>
   </ItemDefinitionGroup>

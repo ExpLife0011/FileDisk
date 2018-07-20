@@ -884,3 +884,64 @@ BOOL HaveReserveSectors(DWORD physicalDriveNumber)
 	}
 
 }
+
+
+
+BOOL WriteSpecialUDisk(char letter, DWORD num, PDRIVEINFO driveInfo)
+{
+	char path[MAX_PATH] = { 0 };
+	sprintf(path, "\\\\.\\%c:", letter);
+
+	HANDLE hDrive = CreateFileA(path,
+		GENERIC_WRITE | GENERIC_READ,
+		FILE_SHARE_WRITE | FILE_SHARE_READ,
+		NULL,
+		OPEN_EXISTING,
+		FILE_FLAG_NO_BUFFERING,
+		NULL);
+
+	if (hDrive == INVALID_HANDLE_VALUE)
+	{
+		return FALSE;
+	}
+
+	char buffer[SECTORLENGTH] = { 0 };
+
+	DWORD bytesOfBuffer = 0;
+	BOOL ret = FALSE;
+
+	ULONGLONG byteOffset = 0;
+	OVERLAPPED over = {0};
+	ZeroMemory(&over, sizeof(OVERLAPPED));
+	over.hEvent = NULL;
+	over.Offset = 0;
+	over.OffsetHigh = 0;
+
+	over.Offset = (ULONG)((byteOffset)& 0xFFFFFFFF);
+	over.OffsetHigh = (ULONG)((byteOffset) >> 32);
+
+	// 		if (i == 0)
+	// 		{
+	PPARTITIONENTRY partitionEntry = (PPARTITIONENTRY)&sector0Data[0x1BE];
+
+	partitionEntry->status = 0x80;
+	partitionEntry->STARTCHS.trackNum = (BYTE)(2048 / driveInfo->SectorsPerTrack);							//20
+	partitionEntry->STARTCHS.sectorsNum = (BYTE)(2048 % driveInfo->SectorsPerTrack + 1);						//21
+	partitionEntry->STARTCHS.cylinderNum = (BYTE)(2048 / (driveInfo->SectorsPerTrack * driveInfo->TracksPerCylinder));//0
+	partitionEntry->type = 0x7;
+	partitionEntry->ENDCHS.trackNum = 0xFE;
+	partitionEntry->ENDCHS.sectorsNum = 0xFF;
+	partitionEntry->ENDCHS.cylinderNum = 0xFF;
+	partitionEntry->startLBA = 2048;
+	partitionEntry->partitionSize = (DWORD)(10 * 1024 * 1024 / 512); //10M¥Û–°
+
+	ret = WriteFile(hDrive, sector0Data, SECTORLENGTH, &bytesOfBuffer, &over);
+	if (!ret)
+	{
+		CloseHandle(hDrive);
+		DWORD errCode = GetLastError();
+
+		return FALSE;
+	}
+
+}

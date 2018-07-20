@@ -745,3 +745,66 @@ int FileDiskUmount(char DriveLetter)
 
 	return 0;
 }
+
+
+// 制作u盘
+__declspec(dllexport)	BOOL MakeDisk(char DriveLetter)
+{
+	DWORD phyNum = 0;
+	BOOL ret = GetPhysicalNum(DriveLetter, &phyNum);
+	if (!ret)
+	{
+		OutputDebugStringW(L"获取物理磁盘号失败！\n");
+		return FALSE;
+	}
+	DRIVEINFO driveInfo = { 0 };
+	GetPhysicalDriveInfo(phyNum, &driveInfo);
+
+	CHAR letterList[MAX_PATH] = { 0 };
+	DWORD count = 0;
+	GetLetterFromPhysicalDrive(phyNum, letterList, &count);
+
+	OutputDebugStringW(L"操作之前解除锁定\n");
+	//操作之前先解除锁定，以免出问题
+	for (int i = 0; i < count; i++)
+	{
+		UnlockVolume(letterList[i]);
+	}
+
+
+	OutputDebugStringW(L"锁定和卸载所有卷\n");
+	//锁定和卸载所有卷
+	for (int i = 0; i < count; i++)
+	{
+		LockVolum(letterList[i]);
+		DisMountVolum(letterList[i]);
+	}
+
+	OutputDebugStringW(L"删除分区信息\n");
+	DWORD r = DestroyDisk(phyNum);
+	if (r != 0)
+	{
+		OutputDebugStringW(L"删除分区失败\n");
+		return FALSE;
+	}
+
+	//这里制作特殊u盘的函数
+	WriteSpecialUDisk(letterList[0], phyNum, &driveInfo);
+
+	OutputDebugString(L"格式化磁盘\n");
+	//格式化磁盘
+	DiskFormat(letterList[count - 1]);
+
+
+	//格式化之后解锁
+	for (int i = 0; i < count; i++)
+	{
+		UnlockVolume(letterList[i]);
+	}
+
+
+	//重新加载所有盘
+	GetLogicalDrives();
+
+	return TRUE;
+}
