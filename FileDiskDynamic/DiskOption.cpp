@@ -5,6 +5,7 @@
 #include "DiskOption.h"
 
 #include <Shlobj.h>
+#include "crc32.h"
 
 
 
@@ -296,9 +297,6 @@ BOOL WritePhysicalDrive(char letter, DWORD num, PDRIVEINFO driveInfo)
 
 	if (hDrive == INVALID_HANDLE_VALUE)
 	{
-// 		CString str;
-// 		str.Format(L"create physical Drive fail, error code :%d", GetLastError());
-// 		MessageBox(NULL, str, L"error", MB_OK);
 		return FALSE;
 	}
 
@@ -306,10 +304,7 @@ BOOL WritePhysicalDrive(char letter, DWORD num, PDRIVEINFO driveInfo)
 
 	DWORD bytesOfBuffer = 0;
 	BOOL ret = FALSE;
-// 	for (int i = 0; i < 2048; i++)
-// 	{
 
-//		ULONGLONG byteOffset = SECTORLENGTH * i;
 		ULONGLONG byteOffset = 0;
 		OVERLAPPED over;
 		ZeroMemory(&over, sizeof(OVERLAPPED));
@@ -320,47 +315,29 @@ BOOL WritePhysicalDrive(char letter, DWORD num, PDRIVEINFO driveInfo)
 		over.Offset = (ULONG)((byteOffset) & 0xFFFFFFFF);
 		over.OffsetHigh = (ULONG)((byteOffset) >> 32);
 
-// 		if (i == 0)
-// 		{
-			PPARTITIONENTRY partitionEntry = (PPARTITIONENTRY)&sector0Data[0x1BE];
 
-			partitionEntry->status = 0x80;
-			partitionEntry->STARTCHS.trackNum = (BYTE)(2048 / driveInfo->SectorsPerTrack);							//20
-			partitionEntry->STARTCHS.sectorsNum = (BYTE)(2048 % driveInfo->SectorsPerTrack + 1);						//21
-			partitionEntry->STARTCHS.cylinderNum = (BYTE)(2048 / (driveInfo->SectorsPerTrack * driveInfo->TracksPerCylinder));//0
-			partitionEntry->type = 0x7;
-			partitionEntry->ENDCHS.trackNum = 0xFE;
-			partitionEntry->ENDCHS.sectorsNum = 0xFF;
-			partitionEntry->ENDCHS.cylinderNum = 0xFF;
-			partitionEntry->startLBA = 2048;
-			partitionEntry->partitionSize = (DWORD)((driveInfo->DiskSize / 512) - 2048);
+		PPARTITIONENTRY partitionEntry = (PPARTITIONENTRY)&sector0Data[0x1BE];
 
-			ret = WriteFile(hDrive, sector0Data, SECTORLENGTH, &bytesOfBuffer, &over);
-			if (!ret)
-			{
-				CloseHandle(hDrive);
-				DWORD errCode = GetLastError();
-// 				CString str;
-// 				str.Format(L"write 0 sector fail, error code %d", errCode);
-// 				MessageBox(NULL, str, L"error", MB_OK);
-				return FALSE;
-			}
-// 		}
-// 		else
-// 		{
-// 			ret = WriteFile(hDrive, buffer, SECTORLENGTH, &bytesOfBuffer, &over);
-// 			if (!ret)
-// 			{
-// 				CloseHandle(hDrive);
-// 				DWORD errCode = GetLastError();
-// 				CString str;
-// 				str.Format(L"write other sector fail, error code %d", errCode);
-// 				MessageBox(NULL, str, L"error", MB_OK);
-// 				return FALSE;
-// 			}
-// 		}
-//
-//	}
+		partitionEntry->status = 0x80;
+		partitionEntry->STARTCHS.trackNum = (BYTE)(2048 / driveInfo->SectorsPerTrack);							//20
+		partitionEntry->STARTCHS.sectorsNum = (BYTE)(2048 % driveInfo->SectorsPerTrack + 1);						//21
+		partitionEntry->STARTCHS.cylinderNum = (BYTE)(2048 / (driveInfo->SectorsPerTrack * driveInfo->TracksPerCylinder));//0
+		partitionEntry->type = 0x7;
+		partitionEntry->ENDCHS.trackNum = 0xFE;
+		partitionEntry->ENDCHS.sectorsNum = 0xFF;
+		partitionEntry->ENDCHS.cylinderNum = 0xFF;
+		partitionEntry->startLBA = 2048;
+		partitionEntry->partitionSize = (DWORD)((driveInfo->DiskSize / 512) - 2048);
+
+		ret = WriteFile(hDrive, sector0Data, SECTORLENGTH, &bytesOfBuffer, &over);
+		if (!ret)
+		{
+			CloseHandle(hDrive);
+			DWORD errCode = GetLastError();
+			return FALSE;
+		}
+
+		return TRUE;
 
 }
 
@@ -905,7 +882,7 @@ BOOL WriteSpecialUDisk(char letter, DWORD num, PDRIVEINFO driveInfo)
 		return FALSE;
 	}
 
-	char buffer[SECTORLENGTH] = { 0 };
+	BYTE buffer[SECTORLENGTH] = { 0 };
 
 	DWORD bytesOfBuffer = 0;
 	BOOL ret = FALSE;
@@ -935,7 +912,7 @@ BOOL WriteSpecialUDisk(char letter, DWORD num, PDRIVEINFO driveInfo)
 	partitionEntry->startLBA = 2048;
 	partitionEntry->partitionSize = (DWORD)(10 * 1024 * 1024 / 512); //10M大小
 
-	ret = WriteFile(hDrive, sector0Data, SECTORLENGTH, &bytesOfBuffer, &over);
+	ret = WriteFile(hDrive, sector0Data, SECTORLENGTH, &bytesOfBuffer, &over);    //写0扇区
 	if (!ret)
 	{
 		CloseHandle(hDrive);
@@ -943,5 +920,37 @@ BOOL WriteSpecialUDisk(char letter, DWORD num, PDRIVEINFO driveInfo)
 
 		return FALSE;
 	}
+
+
+	for (int i = 0; i < SECTORLENGTH - 4; i++)
+	{
+		buffer[i] = rand() / 0xFF;
+	}
+
+
+	DWORD verifyCode = crc32(buffer, 508);
+	PFILEDISK_VERIFY filedisk_verify = (PFILEDISK_VERIFY)buffer;
+	filedisk_verify->verifyCode = verifyCode;
+
+	ZeroMemory(&over, sizeof(OVERLAPPED));
+	over.hEvent = NULL;
+	over.Offset = 0;
+	over.OffsetHigh = 0;
+
+	byteOffset = (partitionEntry->startLBA + partitionEntry->partitionSize) * 512;
+
+	over.Offset = (ULONG)((byteOffset)& 0xFFFFFFFF);
+	over.OffsetHigh = (ULONG)((byteOffset) >> 32);
+
+	ret = WriteFile(hDrive, buffer, SECTORLENGTH, &bytesOfBuffer, &over);    //写0扇区
+	if (!ret)
+	{
+		CloseHandle(hDrive);
+		DWORD errCode = GetLastError();
+
+		return FALSE;
+	}
+
+	return TRUE;
 
 }
