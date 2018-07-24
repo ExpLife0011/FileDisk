@@ -8,6 +8,7 @@
 #include "afxdialogex.h"
 
 #include "..\\FileDiskDynamic\\FileDiskDynamic.h"
+#include "DiskOption.h"
 
 #pragma comment(lib, "..\\Debug\\FileDisk.lib")
 
@@ -15,6 +16,8 @@
 #define new DEBUG_NEW
 #endif
 
+
+#define UDISKOFFSET			(10485760 + 1024 + 1048576)
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
@@ -66,6 +69,10 @@ BEGIN_MESSAGE_MAP(CFileDiskDynamicTestDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_BN_CLICKED(IDC_BUTTON_MAKEUDISK, &CFileDiskDynamicTestDlg::OnBnClickedButtonMakeudisk)
+	ON_BN_CLICKED(IDC_BUTTON_SET_AUTHORITY, &CFileDiskDynamicTestDlg::OnBnClickedButtonSetAuthority)
+	ON_BN_CLICKED(IDC_BUTTON_UMOUNT_DRIVELETTER, &CFileDiskDynamicTestDlg::OnBnClickedButtonUmountDriveletter)
+	ON_BN_CLICKED(IDC_BUTTON_MOUNT_DRIVELETTER, &CFileDiskDynamicTestDlg::OnBnClickedButtonMountDriveletter)
 END_MESSAGE_MAP()
 
 
@@ -157,3 +164,125 @@ HCURSOR CFileDiskDynamicTestDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+
+
+void CFileDiskDynamicTestDlg::OnBnClickedButtonMakeudisk()
+{
+	// TODO:  在此添加控件通知处理程序代码
+
+	CString driveLetter;
+	GetDlgItemText(IDC_EDIT_DRIVELETTER, driveLetter);
+
+	char c_driverLetter[10];
+
+	int len = WideCharToMultiByte(CP_ACP, 0, driveLetter.GetBuffer(), -1, NULL, 0, NULL, NULL);
+	WideCharToMultiByte(CP_ACP, 0, driveLetter.GetBuffer(), -1, c_driverLetter, len, NULL, NULL);
+
+	MakeDisk(c_driverLetter[0]);
+}
+
+
+void CFileDiskDynamicTestDlg::OnBnClickedButtonSetAuthority()
+{
+	// TODO:  在此添加控件通知处理程序代码
+
+	DWORD authority = GetDlgItemInt(IDC_EDIT_AUTHORITY);
+
+	FDSendMessage(&authority);
+
+}
+
+
+void CFileDiskDynamicTestDlg::OnBnClickedButtonUmountDriveletter()
+{
+	// TODO:  在此添加控件通知处理程序代码
+	CString driveLetter;
+	GetDlgItemText(IDC_EDIT_UMOUNT_DRIVELETTER, driveLetter);
+
+	char c_driveLetter[10];
+	 
+	int len = WideCharToMultiByte(CP_ACP, 0, driveLetter.GetBuffer(), -1, NULL, 0, NULL, NULL);
+	WideCharToMultiByte(CP_ACP, 0, driveLetter.GetBuffer(), -1, c_driveLetter, len, NULL, NULL);
+
+	FileDiskUmount(c_driveLetter[0]);
+
+}
+
+
+void CFileDiskDynamicTestDlg::OnBnClickedButtonMountDriveletter()
+{
+	// TODO:  在此添加控件通知处理程序代码
+
+	CString driveLetterStr;
+	GetDlgItemText(IDC_EDIT_MOUNT_DRIVELETTER, driveLetterStr);
+
+	char c_driveLetter[10];
+
+	int len = WideCharToMultiByte(CP_ACP, 0, driveLetterStr.GetBuffer(), -1, NULL, 0, NULL, NULL);
+	WideCharToMultiByte(CP_ACP, 0, driveLetterStr.GetBuffer(), -1, c_driveLetter, len, NULL, NULL);
+
+	char driveLetter = c_driveLetter[0];
+
+	POPEN_FILE_INFORMATION  OpenFileInformation;
+	char FileName[MAX_PATH] = { 0 };
+	DWORD PhyDriveNo = 0;
+	DRIVEINFO DriveInfo = { 0 };
+	GetPhysicalNum(driveLetter, &PhyDriveNo);
+
+	//获取磁盘相关信息
+	GetPhysicalDriveInfo(PhyDriveNo, &DriveInfo);
+
+	sprintf(FileName, "\\??\\physicaldrive%d", PhyDriveNo);
+	OpenFileInformation =
+		(POPEN_FILE_INFORMATION)malloc(sizeof(OPEN_FILE_INFORMATION) + strlen(FileName) + 7);
+
+	if (OpenFileInformation == NULL)
+	{
+		return ;
+	}
+
+	memset(
+		OpenFileInformation,
+		0,
+		sizeof(OPEN_FILE_INFORMATION) + strlen(FileName) + 7
+		);
+
+	if (FileName[0] == '\\')
+	{
+		if (FileName[1] == '\\')
+			// \\server\share\path\filedisk.img
+		{
+			strcpy(OpenFileInformation->FileName, "\\??\\UNC");
+			strcat(OpenFileInformation->FileName, FileName + 1);
+		}
+		else
+			// \Device\Harddisk0\Partition1\path\filedisk.img
+		{
+			strcpy(OpenFileInformation->FileName, FileName);
+		}
+	}
+	else
+		// c:\path\filedisk.img
+	{
+		strcpy(OpenFileInformation->FileName, "\\??\\");
+		strcat(OpenFileInformation->FileName, FileName);
+	}
+
+	OpenFileInformation->FileNameLength =
+		(USHORT)strlen(OpenFileInformation->FileName);
+
+	OpenFileInformation->DriveLetter = driveLetter + 1;
+	OpenFileInformation->PhysicalDrive = TRUE;
+	OpenFileInformation->FileOffset.QuadPart = UDISKOFFSET;
+	OpenFileInformation->ReadOnly = FALSE;
+	//u盘的大小
+	OpenFileInformation->FileSize.QuadPart = DriveInfo.DiskSize - UDISKOFFSET;
+
+	DWORD DeviceNumber = GetAvailableDeviceNumber();
+	if (DeviceNumber < 0)
+	{
+		return ;
+	}
+
+	FileDiskMount(DeviceNumber, OpenFileInformation, FALSE);		//挂载u盘
+}

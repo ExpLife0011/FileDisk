@@ -1947,8 +1947,8 @@ FileDiskOpenFile (
         &Irp->IoStatus,
         NULL,
         FILE_ATTRIBUTE_NORMAL,
-//         device_extension->read_only ? FILE_SHARE_READ : 0,
-		FILE_SHARE_READ,
+        device_extension->read_only ? FILE_SHARE_READ : 0,
+// 		FILE_SHARE_READ,
         FILE_OPEN,
 		FILE_NON_DIRECTORY_FILE |
 		FILE_RANDOM_ACCESS |

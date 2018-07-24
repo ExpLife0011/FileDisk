@@ -29,4 +29,9 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
+public:
+	afx_msg void OnBnClickedButtonMakeudisk();
+	afx_msg void OnBnClickedButtonSetAuthority();
+	afx_msg void OnBnClickedButtonUmountDriveletter();
+	afx_msg void OnBnClickedButtonMountDriveletter();
 };

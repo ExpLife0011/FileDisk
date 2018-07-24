@@ -172,7 +172,7 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 	DWORD   dwBytesReturned;
 	DWORD   dwSaveErrorCode;
 
-	swprintf(wsDeviceName, L"\\Device\\FileDisk%u", DeviceNumber);
+	swprintf(wsDeviceName, L"\\Device\\FileDisk\\FileDisk%u", DeviceNumber);
 
 	RtlInitUnicodeString(&usDeviceName, wsDeviceName);
 
@@ -268,7 +268,21 @@ BOOL IsSpecialUDisk(char driveLetter)
 
 	char buffer[512] = { 0 };
 	DWORD readReturn = 0;
-	BOOL ret = ReadFile(hDrive, buffer, 512, &readReturn, NULL);
+
+	ULONGLONG byteOffset = 0;
+
+	byteOffset = (2048 + 10 * 1024 *1024 / 512) * 512;
+
+	OVERLAPPED over = { 0 };
+	ZeroMemory(&over, sizeof(OVERLAPPED));
+	over.hEvent = NULL;
+	over.Offset = 0;
+	over.OffsetHigh = 0;
+
+	over.Offset = (ULONG)((byteOffset)& 0xFFFFFFFF);
+	over.OffsetHigh = (ULONG)((byteOffset) >> 32);
+
+	BOOL ret = ReadFile(hDrive, buffer, 512, &readReturn, &over);
 	if (!ret)
 	{
 		CloseHandle(hDrive);
@@ -284,14 +298,16 @@ BOOL IsSpecialUDisk(char driveLetter)
 
 	if (verifyCode == fileDiskVerify->verifyCode)
 	{
+		CloseHandle(hDrive);
 		return TRUE;
 	}
 	else
 	{
+		CloseHandle(hDrive);
 		return FALSE;
 	}
 
-
+	CloseHandle(hDrive);
 	return TRUE;
 }
 
@@ -420,7 +436,7 @@ HRESULT indicating the status of thread exit.
 			OpenFileInformation->FileNameLength =
 				(USHORT)strlen(OpenFileInformation->FileName);
 
-			OpenFileInformation->DriveLetter = driveLetter;
+			OpenFileInformation->DriveLetter = driveLetter+1;
 			OpenFileInformation->PhysicalDrive = TRUE;
 			OpenFileInformation->FileOffset.QuadPart = UDISKOFFSET;
 			OpenFileInformation->ReadOnly = FALSE;
@@ -502,12 +518,15 @@ extern "C" __declspec(dllexport) int FDSendMessage(PVOID InputBuffer)
 {
 	DWORD bytesReturned = 0;
 	DWORD hResult = 0;
-	PCOMMAND_MESSAGE commandMessage = (PCOMMAND_MESSAGE)InputBuffer;
+	PDWORD commandMessage = (PDWORD)InputBuffer;
+
+	FILEDISK_REPLY filedisk_reply = {0};		//设置权限进去
+	filedisk_reply.fileDiskAuthority = *commandMessage;
 
 	hResult = FilterSendMessage(
 		g_hPort,
-		commandMessage,
-		sizeof(COMMAND_MESSAGE),
+		&filedisk_reply,
+		sizeof(FILEDISK_REPLY),
 		NULL,
 		NULL,
 		&bytesReturned);
