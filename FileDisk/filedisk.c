@@ -521,7 +521,7 @@ DriverEntry (
     ULONG                       n;
     USHORT                      n_created_devices;
 
-	PSECURITY_DESCRIPTOR		miniFltSd;
+	SECURITY_DESCRIPTOR			miniFltSd;
 	OBJECT_ATTRIBUTES			miniFltOa;
 	UNICODE_STRING				uniString;
 
@@ -546,11 +546,18 @@ DriverEntry (
 	/* 建立minifilter通信端口                                                */
 	/************************************************************************/
 
-	status = FltBuildDefaultSecurityDescriptor(&miniFltSd, FLT_PORT_ALL_ACCESS);
-	if (!NT_SUCCESS(status))
-	{
-		KdPrint(("FileDisk: MiniFilter FltBuildDefaultSecurityDescriptor fail, errcode:%08x", status));
+// 	status = FltBuildDefaultSecurityDescriptor(&miniFltSd, FLT_PORT_ALL_ACCESS);
+// 	if (!NT_SUCCESS(status))
+// 	{
+// 		KdPrint(("FileDisk: MiniFilter FltBuildDefaultSecurityDescriptor fail, errcode:%08x", status));
+// 	}
+	status = RtlCreateSecurityDescriptor(&miniFltSd, SECURITY_DESCRIPTOR_REVISION);
+
+	if (!NT_SUCCESS(status)) {
+		return status;
 	}
+
+	RtlSetDaclSecurityDescriptor(&miniFltSd, TRUE, NULL, FALSE);
 
 	RtlInitUnicodeString(&uniString, MINISPY_PORT_NAME);
 
@@ -558,7 +565,9 @@ DriverEntry (
 		&uniString,
 		OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE,
 		NULL,
-		miniFltSd);
+		&miniFltSd);
+
+
 
 	status = FltCreateCommunicationPort(g_FilterHandle,
 		&g_ServerPort,

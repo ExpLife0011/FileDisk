@@ -1,4 +1,5 @@
 #include <ntifs.h>
+#include <ntstrsafe.h>
 #include "MiniFilter.h"
 #include "function.h"
 #include "filedisk.h"
@@ -415,6 +416,64 @@ NTSTATUS
 }
 
 
+
+// 输入 \\Device\\harddiskvolume1
+// 输出 0 or 1 or 2
+// 通过设备名获取物理磁盘号
+
+#define MAX_DISK_NUM			10
+#define MAX_PARTITION_NUM		10
+
+NTSTATUS
+MyRtlVolumeDeviceGetPhysicalNumber(
+IN PUNICODE_STRING DeviceName,
+OUT PULONG PhysicalNumber
+)
+{
+	NTSTATUS status = STATUS_SUCCESS;
+	ULONG partitionNo = 0;
+	ULONG harddiskNo = 0;
+
+	WCHAR wc_symbolicLink[512] = {0};
+	UNICODE_STRING symbolicLink;
+	UNICODE_STRING linkTarget = {0};
+
+	RtlInitEmptyUnicodeString(&symbolicLink, wc_symbolicLink, 512 * sizeof(WCHAR));
+
+	
+	for (harddiskNo = 0; harddiskNo < MAX_DISK_NUM; harddiskNo++)
+	{
+		for (partitionNo = 0; partitionNo < MAX_PARTITION_NUM; partitionNo++)
+		{
+			status = RtlStringCbPrintfW(symbolicLink.Buffer,
+				512 * sizeof(WCHAR),
+				L"\\??\\Harddisk%dPartition%d",
+				harddiskNo,
+				partitionNo);
+			symbolicLink.Length = wcslen(symbolicLink.Buffer) * sizeof(WCHAR);
+
+			KdPrint(("FileDisk: 遍历的符号链接：%wZ\n", &symbolicLink));
+
+			status = QuerySymbolicLink(&symbolicLink, &linkTarget);
+			if (!NT_SUCCESS(status))
+			{
+				continue;
+			}
+
+			if (RtlEqualUnicodeString(&linkTarget, DeviceName, TRUE))
+			{
+				ExFreePool(linkTarget.Buffer);
+				KdPrint(("FileDisk: 该磁盘的物理号为：%d\n", harddiskNo));
+				break;
+			}
+		}
+	}
+
+	*PhysicalNumber = harddiskNo;
+	return status;
+}
+
+
 NTSTATUS
 MiniFilterInstanceSetup(
 _In_ PCFLT_RELATED_OBJECTS FltObjects,
@@ -444,6 +503,8 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 
 	PREAD_UDISK_CONTEXT			context = NULL;		//传入线程的相关数据
 	UNICODE_STRING				DosName = {0};			//通过设备名称获取的盘符
+
+	ULONG						harddiskNo = 0;			//物理磁盘号
 
 
 	char devicePath[260] = { 0 };
@@ -493,6 +554,8 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 
 		//获取盘符
 		status = MyRtlVolumeDeviceToDosName(workingName, &DosName);
+
+		MyRtlVolumeDeviceGetPhysicalNumber(workingName, &harddiskNo);
 
 		if (NT_SUCCESS(status))
 		{

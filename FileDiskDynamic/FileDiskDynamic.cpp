@@ -263,6 +263,7 @@ BOOL IsSpecialUDisk(char driveLetter)
 		NULL);
 	if (hDrive == INVALID_HANDLE_VALUE)
 	{
+		OutputDebugStringW(L"IsSpecialUDisk CreateFile error\n");
 		return FALSE;
 	}
 
@@ -375,6 +376,11 @@ HRESULT indicating the status of thread exit.
 
 		BOOL isSpecial = IsSpecialUDisk(driveLetter);
 
+		//打印调试信息
+		if (!isSpecial)
+		{
+			OutputDebugStringW(L"这不是一个制作的u盘\n");
+		}
 		
 		replyMessage.ReplyHeader.Status = 0;
 		replyMessage.ReplyHeader.MessageId = message->MessageHeader.MessageId;
@@ -446,9 +452,10 @@ HRESULT indicating the status of thread exit.
 			DWORD DeviceNumber = GetAvailableDeviceNumber();
 			if (DeviceNumber < 0)
 			{
+				OutputDebugStringW(L"获取不到可用的设备号\n");
 				return -1;
 			}
-
+			OutputDebugStringW(L"开始挂载u盘\n");
 			FileDiskMount(DeviceNumber, OpenFileInformation, FALSE);		//挂载u盘
 		}
 
