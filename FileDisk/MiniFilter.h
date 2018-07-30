@@ -38,6 +38,7 @@ typedef struct _FILEDISK_REPLY {
 typedef struct _READ_UDISK_CONTEXT_
 {
 // 	PUNICODE_STRING	DeviceName;
+	ULONG			hardDiskNo;				//ŒÔ¿Ì¥≈≈Ã∫≈
 	PWCH			deviceName;
 }READ_UDISK_CONTEXT, *PREAD_UDISK_CONTEXT;
 
