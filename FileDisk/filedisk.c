@@ -707,6 +707,10 @@ FileDiskCreateDevice (
     UNICODE_STRING      sddl;
 
 	UNICODE_STRING		symbolic_link;
+	
+	WCHAR				wc_buffer[256];
+
+	RtlInitEmptyUnicodeString(&symbolic_link, wc_buffer, 256 * sizeof(WCHAR));
 
     ASSERT(DriverObject != NULL);
 
@@ -727,12 +731,15 @@ FileDiskCreateDevice (
     else
     {
         RtlUnicodeStringPrintf(&device_name, DEVICE_NAME_PREFIX L"%u", Number);
+
+		//创建符号链接
+		RtlUnicodeStringPrintf(&symbolic_link, L"\\??\\FileDiskSymbolicLink%u", Number);
+
+		KdPrint(("FileDisk 创建的符号链接为:%wZ\n", &symbolic_link));
+
+		IoCreateSymbolicLink(&symbolic_link, &device_name);
     }
 
-
-	//创建符号链接
-	RtlUnicodeStringPrintf(&symbolic_link, L"FileDiskSymbolicLink%u", Number);
-	IoCreateSymbolicLink(&symbolic_link, &device_name);
 
     RtlInitUnicodeString(&sddl, _T("D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;BU)"));
 
@@ -845,13 +852,15 @@ FileDiskUnload (
 	PDEVICE_EXTENSION		device_object_extension;
 	UNICODE_STRING			symbolic_link;
 
+	WCHAR				wc_buffer[256];
     PAGED_CODE();
 
     device_object = DriverObject->DeviceObject;
 
 	//删除符号链接
+	RtlInitEmptyUnicodeString(&symbolic_link, wc_buffer, 256 * sizeof(WCHAR));
 	device_object_extension = device_object->DeviceExtension;
-	RtlUnicodeStringPrintf(&symbolic_link, L"FileDiskSymbolicLink%u", device_object_extension->device_number);
+	RtlUnicodeStringPrintf(&symbolic_link, L"\\??\\FileDiskSymbolicLink%u", device_object_extension->device_number);
 
 	IoDeleteSymbolicLink(&symbolic_link);
 
@@ -996,17 +1005,17 @@ FileDiskDeviceControl (
 
     io_stack = IoGetCurrentIrpStackLocation(Irp);
 
-    if (!device_extension->media_in_device &&
-        io_stack->Parameters.DeviceIoControl.IoControlCode !=
-        IOCTL_FILE_DISK_OPEN_FILE)
-    {
-        Irp->IoStatus.Status = STATUS_NO_MEDIA_IN_DEVICE;
-        Irp->IoStatus.Information = 0;
-
-        IoCompleteRequest(Irp, IO_NO_INCREMENT);
-
-        return STATUS_NO_MEDIA_IN_DEVICE;
-    }
+//     if (!device_extension->media_in_device &&
+//         io_stack->Parameters.DeviceIoControl.IoControlCode !=
+//         IOCTL_FILE_DISK_OPEN_FILE)
+//     {
+//         Irp->IoStatus.Status = STATUS_NO_MEDIA_IN_DEVICE;
+//         Irp->IoStatus.Information = 0;
+// 
+//         IoCompleteRequest(Irp, IO_NO_INCREMENT);
+// 
+//         return STATUS_NO_MEDIA_IN_DEVICE;
+//     }
 
     switch (io_stack->Parameters.DeviceIoControl.IoControlCode)
     {

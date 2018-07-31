@@ -158,6 +158,9 @@ EXTERN_C
 /************************************************************************/
 
 
+
+DWORD				g_Authority = 0;
+
 //判断设备是否可用
 BOOL QueryDeviceStatus(DWORD DeviceNumber)
 {
@@ -173,7 +176,7 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 	DWORD   dwBytesReturned;
 	DWORD   dwSaveErrorCode;
 
-	swprintf(wsSymbolicLink, L"\\\\.\\LaLaLa%u", DeviceNumber);
+	swprintf(wsSymbolicLink, L"\\\\.\\FileDiskSymbolicLink%u", DeviceNumber);
 	swprintf(wsDeviceName, L"\\Device\\FileDisk\\FileDisk%u", DeviceNumber);
 
 // 	RtlInitUnicodeString(&usDeviceName, wsDeviceName);
@@ -203,14 +206,14 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 // 		return FALSE;
 // 	}
 
-	if (!DefineDosDeviceW(
-		DDD_RAW_TARGET_PATH,
-		&wsSymbolicLink[4],
-		wsDeviceName
-		))
-	{
-		return FALSE;
-	}
+// 	if (!DefineDosDeviceW(
+// 		DDD_RAW_TARGET_PATH,
+// 		&wsSymbolicLink[4],
+// 		wsDeviceName
+// 		))
+// 	{
+// 		return FALSE;
+// 	}
 
 	hEnDisk = CreateFileW(
 		wsSymbolicLink,
@@ -224,7 +227,7 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 
 	if (hEnDisk == INVALID_HANDLE_VALUE)
 	{
-		DefineDosDeviceW(DDD_REMOVE_DEFINITION, &wsSymbolicLink[4], NULL);
+// 		DefineDosDeviceW(DDD_REMOVE_DEFINITION, &wsSymbolicLink[4], NULL);
 		return FALSE;
 	}
 
@@ -418,7 +421,7 @@ HRESULT indicating the status of thread exit.
 		replyMessage.ReplyHeader.MessageId = message->MessageHeader.MessageId;
 
 		//将专用介质的权限给驱动
-		replyMessage.Reply.fileDiskAuthority = 2/*这里*/;
+		replyMessage.Reply.fileDiskAuthority = g_Authority/*这里*/;
 
 		printf("Replying message, fileDiskAuthority: %d\n", replyMessage.Reply.fileDiskAuthority);
 
@@ -874,5 +877,19 @@ __declspec(dllexport)	BOOL MakeDisk(char DriveLetter)
 	//重新加载所有盘
 	GetLogicalDrives();
 
+	return TRUE;
+}
+
+
+
+extern "C" __declspec(dllexport)	BOOL SetUDiskAuthority(DWORD Authority)
+{
+	g_Authority = Authority;
+	return TRUE;
+}
+
+extern "C" __declspec(dllexport)	BOOL GetUDiskAuthority(PDWORD Authority)
+{
+	*Authority = g_Authority;
 	return TRUE;
 }
