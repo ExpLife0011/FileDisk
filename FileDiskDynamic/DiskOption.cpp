@@ -369,6 +369,7 @@ BOOL GetPhysicalDriveInfo(DWORD physicalNum, PDRIVEINFO DriveInfo)
 // 		CString str;
 // 		str.Format(L"Drive info error code : %d", GetLastError());
 // 		MessageBox(NULL, str, L"error", MB_OK);
+		MessageBoxW(NULL, L"DriveInfo CreateFile Error", L"Error", MB_OK);
 		CloseHandle(hDrive);
 
 		return FALSE;
@@ -390,6 +391,7 @@ BOOL GetPhysicalDriveInfo(DWORD physicalNum, PDRIVEINFO DriveInfo)
 // 		CString str;
 // 		str.Format(L"Drive info error code: %d", GetLastError());
 // 		MessageBox(NULL, str, L"error", MB_OK);
+		MessageBoxW(NULL, L"DriveInfo DeviceIoControl Error", L"Error", MB_OK);
 		CloseHandle(hDrive);
 
 		return FALSE;

@@ -6,8 +6,9 @@
 
 typedef struct _FILEDISK_VERIFY_					//磁盘开始的512字节用于校验是否被改动
 {
-	BYTE code[508];
-	ULONG32 verifyCode;
+	BYTE				code[500];
+	BYTE				diskSize[8];
+	ULONG32				verifyCode;
 }FILEDISK_VERIFY, *PFILEDISK_VERIFY;
 
 static const ULONG32 crc32tab[] = {

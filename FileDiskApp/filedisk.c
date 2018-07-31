@@ -82,6 +82,7 @@ FileDiskMount(
     char    DeviceName[255];
     HANDLE  Device;
     DWORD   BytesReturned;
+	char	strBuffer[512];
 
     VolumeName[4] = OpenFileInformation->DriveLetter;
     DriveName[0] = OpenFileInformation->DriveLetter;
@@ -99,9 +100,8 @@ FileDiskMount(
     if (Device != INVALID_HANDLE_VALUE)
     {
         CloseHandle(Device);
-        SetLastError(ERROR_BUSY);
-        PrintLastError(&VolumeName[4]);
-		fprintf(stdout, "FileDisk:CreateFile error,errcode:%d\n", GetLastError());
+		sprintf(strBuffer, "FileDiskMount CreateFile Error, errCode: %d\n", GetLastError());
+		OutputDebugStringA(strBuffer);
         return -1;
     }
 
@@ -120,8 +120,8 @@ FileDiskMount(
         DeviceName
         ))
     {
-        PrintLastError(&VolumeName[4]);
-		fprintf(stdout, "FileDisk:DefineDosDevice error,errcode:%d\n", GetLastError());
+		sprintf(strBuffer, "FileDiskMount DefineDosDevice Error, errCode: %d\n", GetLastError());
+		OutputDebugStringA(strBuffer);
         return -1;
     }
 
@@ -137,9 +137,8 @@ FileDiskMount(
 
     if (Device == INVALID_HANDLE_VALUE)
     {
-        PrintLastError(&VolumeName[4]);
-        DefineDosDevice(DDD_REMOVE_DEFINITION, &VolumeName[4], NULL);
-		fprintf(stdout, "FileDisk:CreateFile1 error,errcode:%d\n", GetLastError());
+		sprintf(strBuffer, "FileDiskMount CreateFile1 Error, errCode: %d\n", GetLastError());
+		OutputDebugStringA(strBuffer);
         return -1;
     }
 
@@ -154,10 +153,9 @@ FileDiskMount(
         NULL
         ))
     {
-        PrintLastError("FileDisk:");
-        DefineDosDevice(DDD_REMOVE_DEFINITION, &VolumeName[4], NULL);
+		sprintf(strBuffer, "FileDiskMount DeviceIoControl IOCTL_FILE_DISK_OPEN_FILE Error, errCode: %d\n", GetLastError());
+		OutputDebugStringA(strBuffer);
         CloseHandle(Device);
-		fprintf(stdout, "FileDisk:DeviceIoControl error,errcode:%d\n", GetLastError());
         return -1;
     }
 

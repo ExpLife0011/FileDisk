@@ -655,6 +655,7 @@ IN PVOID Context
 	IO_STATUS_BLOCK				iostatus;
 	PUCHAR						buffer = NULL;
 	LARGE_INTEGER				fileOffset;			//读取磁盘的偏移
+	ULONGLONG					diskSize = 0;			//磁盘大小
 
 	PFILEDISK_VERIFY			fileDiskVerify;
 	ULONG						verifyCode;
@@ -741,6 +742,7 @@ IN PVOID Context
 		//校验结构体的数据是否改变过  crc
 
 		fileDiskVerify = (PFILEDISK_VERIFY)buffer;
+		diskSize = *(ULONGLONG *)&fileDiskVerify->diskSize;
 		verifyCode = crc32(fileDiskVerify->code, 508);
 
 		if (verifyCode == fileDiskVerify->verifyCode)
@@ -764,7 +766,8 @@ IN PVOID Context
 
 	notification->fileDiskAuthority = 0;
 	notification->offset.QuadPart = 0;
-	notification->storageSize.QuadPart = 0;
+	notification->storageSize.QuadPart = diskSize;
+	KdPrint(("FileDisk: 磁盘的大小为：%lld\n", diskSize));
 	RtlCopyMemory(notification->Contents, ((PREAD_UDISK_CONTEXT)Context)->deviceName, wcslen(((PREAD_UDISK_CONTEXT)Context)->deviceName));
 
 	ExFreePoolWithTag(((PREAD_UDISK_CONTEXT)Context)->deviceName, FILE_DISK_POOL_TAG);

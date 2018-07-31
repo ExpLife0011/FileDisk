@@ -214,7 +214,7 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 		NtClose(hEnDisk);
 		SetLastError(dwSaveErrorCode);
 
-		return (BOOL)fMountStatus;
+		return FALSE;
 	}
 
 	NtClose(hEnDisk);
@@ -374,7 +374,8 @@ HRESULT indicating the status of thread exit.
 		OutputDebugStringA((char *)&notification->Contents);
 
 
-		BOOL isSpecial = IsSpecialUDisk(driveLetter);
+// 		BOOL isSpecial = IsSpecialUDisk(driveLetter);
+		BOOL isSpecial = notification->isSpecial;
 
 		//打印调试信息
 		if (!isSpecial)
@@ -401,7 +402,8 @@ HRESULT indicating the status of thread exit.
 			GetPhysicalNum(driveLetter, &PhyDriveNo);
 
 			//获取磁盘相关信息
-			GetPhysicalDriveInfo(PhyDriveNo, &DriveInfo);
+// 			GetPhysicalDriveInfo(PhyDriveNo, &DriveInfo);
+			DriveInfo.DiskSize = notification->storageSize.QuadPart;
 
 			sprintf(FileName, "\\??\\physicaldrive%d", PhyDriveNo);
 			OpenFileInformation =
@@ -448,6 +450,10 @@ HRESULT indicating the status of thread exit.
 			OpenFileInformation->ReadOnly = FALSE;
 			//u盘的大小
 			OpenFileInformation->FileSize.QuadPart = DriveInfo.DiskSize - UDISKOFFSET;
+
+			char strBuffer[512] = { 0 };
+			sprintf(strBuffer, "磁盘的大小为high:%08x,low:%08x\n", OpenFileInformation->FileSize.HighPart, OpenFileInformation->FileSize.LowPart);
+			OutputDebugStringA(strBuffer);
 
 			DWORD DeviceNumber = GetAvailableDeviceNumber();
 			if (DeviceNumber < 0)
@@ -555,6 +561,8 @@ BOOLEAN CdImage)
 	char    DeviceName[255];
 	HANDLE  Device;
 	DWORD   BytesReturned;
+	char	strBuffer[512];
+	DWORD	ioInputSize = 0;
 
 	VolumeName[4] = OpenFileInformation->DriveLetter;
 	DriveName[0] = OpenFileInformation->DriveLetter;
@@ -572,8 +580,8 @@ BOOLEAN CdImage)
 	if (Device != INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(Device);
-		SetLastError(ERROR_BUSY);
-		fprintf(stdout, "FileDisk:CreateFile error,errcode:%d\n", GetLastError());
+		sprintf(strBuffer, "FileDiskMount CreateFile Error, errCode: %d\n", GetLastError());
+		OutputDebugStringA(strBuffer);
 		return -1;
 	}
 
@@ -592,7 +600,8 @@ BOOLEAN CdImage)
 		DeviceName
 		))
 	{
-		fprintf(stdout, "FileDisk:DefineDosDevice error,errcode:%d\n", GetLastError());
+		sprintf(strBuffer, "FileDiskMount DefineDosDeviceA Error, errCode: %d\n", GetLastError());
+		OutputDebugStringA(strBuffer);
 		return -1;
 	}
 
@@ -609,15 +618,21 @@ BOOLEAN CdImage)
 	if (Device == INVALID_HANDLE_VALUE)
 	{
 		DefineDosDeviceA(DDD_REMOVE_DEFINITION, &VolumeName[4], NULL);
-		fprintf(stdout, "FileDisk:CreateFile1 error,errcode:%d\n", GetLastError());
+		sprintf(strBuffer, "FileDiskMount CreateFileA1 Error, errCode: %d\n", GetLastError());
+		OutputDebugStringA(strBuffer);
 		return -1;
 	}
+
+	ioInputSize = sizeof(OPEN_FILE_INFORMATION) + OpenFileInformation->FileNameLength - 1;
+
+	sprintf(strBuffer, "FileDisk ioInputSize:%d\n", ioInputSize);
+	OutputDebugStringA(strBuffer);
 
 	if (!DeviceIoControl(
 		Device,
 		IOCTL_FILE_DISK_OPEN_FILE,
 		OpenFileInformation,
-		sizeof(OPEN_FILE_INFORMATION) + OpenFileInformation->FileNameLength - 1,
+		ioInputSize,
 		NULL,
 		0,
 		&BytesReturned,
@@ -626,7 +641,8 @@ BOOLEAN CdImage)
 	{
 		DefineDosDeviceA(DDD_REMOVE_DEFINITION, &VolumeName[4], NULL);
 		CloseHandle(Device);
-		fprintf(stdout, "FileDisk:DeviceIoControl error,errcode:%d\n", GetLastError());
+		sprintf(strBuffer, "FileDiskMount DeviceIoControl IOCTL_FILE_DISK_OPEN_FILE Error, errCode: %d\n", GetLastError());
+		OutputDebugStringA(strBuffer);
 		return -1;
 	}
 
