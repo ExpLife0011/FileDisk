@@ -706,6 +706,8 @@ FileDiskCreateDevice (
     HANDLE              thread_handle;
     UNICODE_STRING      sddl;
 
+	UNICODE_STRING		symbolic_link;
+
     ASSERT(DriverObject != NULL);
 
     device_name.Buffer = (PWCHAR) ExAllocatePoolWithTag(PagedPool, MAXIMUM_FILENAME_LENGTH * 2, FILE_DISK_POOL_TAG);
@@ -726,6 +728,11 @@ FileDiskCreateDevice (
     {
         RtlUnicodeStringPrintf(&device_name, DEVICE_NAME_PREFIX L"%u", Number);
     }
+
+
+	//´´½¨·ûºÅÁ´½Ó
+	RtlUnicodeStringPrintf(&symbolic_link, L"FileDiskSymbolicLink%u", Number);
+	IoCreateSymbolicLink(&symbolic_link, &device_name);
 
     RtlInitUnicodeString(&sddl, _T("D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;BU)"));
 
@@ -835,10 +842,18 @@ FileDiskUnload (
     )
 {
     PDEVICE_OBJECT device_object;
+	PDEVICE_EXTENSION		device_object_extension;
+	UNICODE_STRING			symbolic_link;
 
     PAGED_CODE();
 
     device_object = DriverObject->DeviceObject;
+
+	//É¾³ý·ûºÅÁ´½Ó
+	device_object_extension = device_object->DeviceExtension;
+	RtlUnicodeStringPrintf(&symbolic_link, L"FileDiskSymbolicLink%u", device_object_extension->device_number);
+
+	IoDeleteSymbolicLink(&symbolic_link);
 
     while (device_object)
     {

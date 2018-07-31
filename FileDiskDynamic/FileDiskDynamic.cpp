@@ -163,6 +163,7 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 {
 	HANDLE                  hEnDisk;
 	WCHAR                   wsDeviceName[MAX_PATH];
+	WCHAR					wsSymbolicLink[MAX_PATH];
 	OBJECT_ATTRIBUTES       ObjectAttributes;
 	UNICODE_STRING          usDeviceName;
 	IO_STATUS_BLOCK         IoSB;
@@ -172,32 +173,58 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 	DWORD   dwBytesReturned;
 	DWORD   dwSaveErrorCode;
 
+	swprintf(wsSymbolicLink, L"\\\\.\\LaLaLa%u", DeviceNumber);
 	swprintf(wsDeviceName, L"\\Device\\FileDisk\\FileDisk%u", DeviceNumber);
 
-	RtlInitUnicodeString(&usDeviceName, wsDeviceName);
+// 	RtlInitUnicodeString(&usDeviceName, wsDeviceName);
 
-	ObjectAttributes.Attributes = 0x40; // BJ_CASE_INSENSITIVE;
-	ObjectAttributes.Length = sizeof(ObjectAttributes);
-	ObjectAttributes.ObjectName = &usDeviceName;
-	ObjectAttributes.RootDirectory = NULL;
-	ObjectAttributes.SecurityDescriptor = NULL;
-	ObjectAttributes.SecurityQualityOfService = NULL;
+// 	ObjectAttributes.Attributes = 0x40; // BJ_CASE_INSENSITIVE;
+// 	ObjectAttributes.Length = sizeof(ObjectAttributes);
+// 	ObjectAttributes.ObjectName = &usDeviceName;
+// 	ObjectAttributes.RootDirectory = NULL;
+// 	ObjectAttributes.SecurityDescriptor = NULL;
+// 	ObjectAttributes.SecurityQualityOfService = NULL;
+// 
+// 	Status = NtCreateFile(&hEnDisk,
+// 		SYNCHRONIZE,
+// 		&ObjectAttributes,
+// 		&IoSB,
+// 		NULL,
+// 		FILE_ATTRIBUTE_NORMAL,
+// 		FILE_SHARE_READ | FILE_SHARE_WRITE,
+// 		0x1, //FILE_OPEN,
+// 		0x8 | 0x20, // FILE_NO_INTERMEDIATE_BUFFERING| FILE_SYNCHRONOUS_IO_NONALERT,
+// 		NULL,
+// 		0);
+// 
+// 	if (!NT_SUCCESS(Status))
+// 	{
+// 		SetLastError(RtlNtStatusToDosError(Status));
+// 		return FALSE;
+// 	}
 
-	Status = NtCreateFile(&hEnDisk,
-		SYNCHRONIZE,
-		&ObjectAttributes,
-		&IoSB,
-		NULL,
-		FILE_ATTRIBUTE_NORMAL,
-		FILE_SHARE_READ | FILE_SHARE_WRITE,
-		0x1, //FILE_OPEN,
-		0x8 | 0x20, // FILE_NO_INTERMEDIATE_BUFFERING| FILE_SYNCHRONOUS_IO_NONALERT,
-		NULL,
-		0);
-
-	if (!NT_SUCCESS(Status))
+	if (!DefineDosDeviceW(
+		DDD_RAW_TARGET_PATH,
+		&wsSymbolicLink[4],
+		wsDeviceName
+		))
 	{
-		SetLastError(RtlNtStatusToDosError(Status));
+		return FALSE;
+	}
+
+	hEnDisk = CreateFileW(
+		wsSymbolicLink,
+		GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		NULL,
+		OPEN_EXISTING,
+		FILE_FLAG_NO_BUFFERING,
+		NULL
+		);
+
+	if (hEnDisk == INVALID_HANDLE_VALUE)
+	{
+		DefineDosDeviceW(DDD_REMOVE_DEFINITION, &wsSymbolicLink[4], NULL);
 		return FALSE;
 	}
 
@@ -211,14 +238,18 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 		NULL))
 	{
 		dwSaveErrorCode = GetLastError();
-		NtClose(hEnDisk);
+// 		NtClose(hEnDisk);
+		CloseHandle(hEnDisk);
 		SetLastError(dwSaveErrorCode);
 
 		return FALSE;
 	}
 
-	NtClose(hEnDisk);
+// 	NtClose(hEnDisk);
+	CloseHandle(hEnDisk);
 	SetLastError(NOERROR);
+
+// 	DefineDosDeviceW(DDD_REMOVE_DEFINITION, &wsSymbolicLink[4], NULL);
 
 	return TRUE;
 }
