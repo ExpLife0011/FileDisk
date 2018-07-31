@@ -188,8 +188,7 @@ void CFileDiskDynamicTestDlg::OnBnClickedButtonSetAuthority()
 
 	DWORD authority = GetDlgItemInt(IDC_EDIT_AUTHORITY);
 
-	FDSendMessage(&authority);
-
+	SetUDiskAuthority(authority);
 }
 
 

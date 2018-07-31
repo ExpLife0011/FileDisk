@@ -586,7 +586,7 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 				NULL,
 				NULL,
 				NULL,
-				ReadUDiskThread,				//这里不直接读磁盘了，放到应用层去读
+				ReadUDiskThread,				
 				context
 				);
 		}

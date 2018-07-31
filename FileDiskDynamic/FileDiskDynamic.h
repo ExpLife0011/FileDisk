@@ -38,7 +38,7 @@ __declspec(dllexport)	int FileDiskUmount(char DriveLetter);
 __declspec(dllexport)	BOOL IsSpecialUDisk(char driveLetter);
 __declspec(dllexport)	BOOL QueryDeviceStatus(DWORD DeviceNumber);
 __declspec(dllexport)	DWORD GetAvailableDeviceNumber();
-__declspec(dllexport)	BOOL MakeDisk(char DriveLetter);
+__declspec(dllexport)	BOOL MakeDisk(char DriveLetter);						//这个弃用
 __declspec(dllexport)	BOOL SetUDiskAuthority(DWORD Authority);				//设置介质的权限
 __declspec(dllexport)	BOOL GetUDiskAuthority(PDWORD Authority);				//获取介质的权限
 

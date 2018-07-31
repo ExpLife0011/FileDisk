@@ -245,6 +245,8 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 		CloseHandle(hEnDisk);
 		SetLastError(dwSaveErrorCode);
 
+		OutputDebugStringW(L"FileDisk QueryDeviceStatus DeviceIoControl Error\n");
+
 		return FALSE;
 	}
 
@@ -495,8 +497,18 @@ HRESULT indicating the status of thread exit.
 				OutputDebugStringW(L"获取不到可用的设备号\n");
 				return -1;
 			}
-			OutputDebugStringW(L"开始挂载u盘\n");
-			FileDiskMount(DeviceNumber, OpenFileInformation, FALSE);		//挂载u盘
+
+
+			if (g_Authority == 0)
+			{
+				OutputDebugStringW(L"权限为禁用，不挂U盘\n");
+			}
+			else
+			{
+				OutputDebugStringW(L"权限为只读或读写,开始挂载u盘\n");
+				FileDiskMount(DeviceNumber, OpenFileInformation, FALSE);		//挂载u盘
+			}
+
 		}
 
 		if (SUCCEEDED(hr)) 
