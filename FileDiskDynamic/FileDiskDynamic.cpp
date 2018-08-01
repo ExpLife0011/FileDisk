@@ -159,9 +159,10 @@ EXTERN_C
 
 
 
-DWORD				g_Authority = 0;
+DWORD				g_Authority = 2;
 
-//判断设备是否可用
+//判断设备是否可用  
+//去把一个文件挂载一个磁盘，以判断设备是否可用
 BOOL QueryDeviceStatus(DWORD DeviceNumber)
 {
 	HANDLE                  hEnDisk;
@@ -172,50 +173,114 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 	IO_STATUS_BLOCK         IoSB;
 	NTSTATUS                Status;
 
+	char					strBuffer[MAX_PATH] = {0};
+	char					FileName[] = "\\??\\C:\\test.img";				//用于测试挂载
+
 	BOOLEAN fMountStatus;
-	DWORD   dwBytesReturned;
+	DWORD   BytesReturned;
 	DWORD   dwSaveErrorCode;
 
+	POPEN_FILE_INFORMATION OpenFileInformation;
+
+	
+	OpenFileInformation =
+		(POPEN_FILE_INFORMATION)malloc(sizeof(OPEN_FILE_INFORMATION) + strlen(FileName) + 7);
+
+	memset(OpenFileInformation, 0, sizeof(OPEN_FILE_INFORMATION) + strlen(FileName) + 7);
+
+	OpenFileInformation->DriveLetter = 'A';
+	strcpy(OpenFileInformation->FileName, FileName);
+	OpenFileInformation->FileNameLength = strlen(FileName);
+	OpenFileInformation->FileOffset.QuadPart = 0;
+	OpenFileInformation->FileSize.QuadPart = 8 * 1024 * 1024;
+	OpenFileInformation->PhysicalDrive = FALSE;
+	OpenFileInformation->ReadOnly = FALSE;
+
+
 	swprintf(wsSymbolicLink, L"\\\\.\\FileDiskSymbolicLink%u", DeviceNumber);
-	swprintf(wsDeviceName, L"\\Device\\FileDisk\\FileDisk%u", DeviceNumber);
+//	swprintf(wsDeviceName, L"\\Device\\FileDisk\\FileDisk%u", DeviceNumber);
+//
+//	RtlInitUnicodeString(&usDeviceName, wsDeviceName);
+//
+//	ObjectAttributes.Attributes = 0x40; // BJ_CASE_INSENSITIVE;
+//	ObjectAttributes.Length = sizeof(ObjectAttributes);
+//	ObjectAttributes.ObjectName = &usDeviceName;
+//	ObjectAttributes.RootDirectory = NULL;
+//	ObjectAttributes.SecurityDescriptor = NULL;
+//	ObjectAttributes.SecurityQualityOfService = NULL;
+//
+//	Status = NtCreateFile(&hEnDisk,
+//		SYNCHRONIZE,
+//		&ObjectAttributes,
+//		&IoSB,
+//		NULL,
+//		FILE_ATTRIBUTE_NORMAL,
+//		FILE_SHARE_READ | FILE_SHARE_WRITE,
+//		0x1, //FILE_OPEN,
+//		0x8 | 0x20, // FILE_NO_INTERMEDIATE_BUFFERING| FILE_SYNCHRONOUS_IO_NONALERT,
+//		NULL,
+//		0);
+//
+//	if (!NT_SUCCESS(Status))
+//	{
+//		SetLastError(RtlNtStatusToDosError(Status));
+//		return FALSE;
+//	}
+//
+//// 	if (!DefineDosDeviceW(
+//// 		DDD_RAW_TARGET_PATH,
+//// 		&wsSymbolicLink[4],
+//// 		wsDeviceName
+//// 		))
+//// 	{
+//// 		return FALSE;
+//// 	}
+//
+//// 	hEnDisk = CreateFileW(
+//// 		wsSymbolicLink,
+//// 		GENERIC_READ | GENERIC_WRITE,
+//// 		FILE_SHARE_READ | FILE_SHARE_WRITE,
+//// 		NULL,
+//// 		OPEN_EXISTING,
+//// 		FILE_FLAG_NO_BUFFERING,
+//// 		NULL
+//// 		);
+//// 
+//// 	if (hEnDisk == INVALID_HANDLE_VALUE)
+//// 	{
+//// // 		DefineDosDeviceW(DDD_REMOVE_DEFINITION, &wsSymbolicLink[4], NULL);
+//// 		return FALSE;
+//// 	}
+//
+//	if (!DeviceIoControl(hEnDisk,
+//		IOCTL_FILE_DISK_QUERY_DEVICE_STATUS,
+//		NULL,
+//		0,
+//		&fMountStatus,
+//		sizeof(fMountStatus),
+//		&dwBytesReturned,
+//		NULL))
+//	{
+//		dwSaveErrorCode = GetLastError();
+//		NtClose(hEnDisk);
+//// 		CloseHandle(hEnDisk);
+//		SetLastError(dwSaveErrorCode);
+//
+//		OutputDebugStringW(L"FileDisk QueryDeviceStatus DeviceIoControl Error\n");
+//
+//		return FALSE;
+//	}
+//
+//	NtClose(hEnDisk);
+//// 	CloseHandle(hEnDisk);
+//	SetLastError(NOERROR);
+//
+//// 	DefineDosDeviceW(DDD_REMOVE_DEFINITION, &wsSymbolicLink[4], NULL);
+//
+//	return TRUE;
 
-// 	RtlInitUnicodeString(&usDeviceName, wsDeviceName);
 
-// 	ObjectAttributes.Attributes = 0x40; // BJ_CASE_INSENSITIVE;
-// 	ObjectAttributes.Length = sizeof(ObjectAttributes);
-// 	ObjectAttributes.ObjectName = &usDeviceName;
-// 	ObjectAttributes.RootDirectory = NULL;
-// 	ObjectAttributes.SecurityDescriptor = NULL;
-// 	ObjectAttributes.SecurityQualityOfService = NULL;
-// 
-// 	Status = NtCreateFile(&hEnDisk,
-// 		SYNCHRONIZE,
-// 		&ObjectAttributes,
-// 		&IoSB,
-// 		NULL,
-// 		FILE_ATTRIBUTE_NORMAL,
-// 		FILE_SHARE_READ | FILE_SHARE_WRITE,
-// 		0x1, //FILE_OPEN,
-// 		0x8 | 0x20, // FILE_NO_INTERMEDIATE_BUFFERING| FILE_SYNCHRONOUS_IO_NONALERT,
-// 		NULL,
-// 		0);
-// 
-// 	if (!NT_SUCCESS(Status))
-// 	{
-// 		SetLastError(RtlNtStatusToDosError(Status));
-// 		return FALSE;
-// 	}
-
-// 	if (!DefineDosDeviceW(
-// 		DDD_RAW_TARGET_PATH,
-// 		&wsSymbolicLink[4],
-// 		wsDeviceName
-// 		))
-// 	{
-// 		return FALSE;
-// 	}
-
-	hEnDisk = CreateFileW(
+	hEnDisk = CreateFile(
 		wsSymbolicLink,
 		GENERIC_READ | GENERIC_WRITE,
 		FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -227,34 +292,67 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 
 	if (hEnDisk == INVALID_HANDLE_VALUE)
 	{
-// 		DefineDosDeviceW(DDD_REMOVE_DEFINITION, &wsSymbolicLink[4], NULL);
+		sprintf(strBuffer, "QueryDeviceStatus CreateFile Error, errCode: %d\n", GetLastError());
+		OutputDebugStringA(strBuffer);
 		return FALSE;
 	}
 
-	if (!DeviceIoControl(hEnDisk,
-		IOCTL_FILE_DISK_QUERY_DEVICE_STATUS,
+
+
+	if (!DeviceIoControl(
+		hEnDisk,
+		IOCTL_FILE_DISK_OPEN_FILE,
+		OpenFileInformation,
+		sizeof(OPEN_FILE_INFORMATION) + OpenFileInformation->FileNameLength - 1,
 		NULL,
 		0,
-		&fMountStatus,
-		sizeof(fMountStatus),
-		&dwBytesReturned,
-		NULL))
+		&BytesReturned,
+		NULL
+		))
 	{
-		dwSaveErrorCode = GetLastError();
-// 		NtClose(hEnDisk);
+		sprintf(strBuffer, "QueryDeviceStatus DeviceIoControl IOCTL_FILE_DISK_OPEN_FILE Error, errCode: %d\n", GetLastError());
+		OutputDebugStringA(strBuffer);
 		CloseHandle(hEnDisk);
-		SetLastError(dwSaveErrorCode);
-
-		OutputDebugStringW(L"FileDisk QueryDeviceStatus DeviceIoControl Error\n");
-
 		return FALSE;
 	}
 
-// 	NtClose(hEnDisk);
-	CloseHandle(hEnDisk);
-	SetLastError(NOERROR);
 
-// 	DefineDosDeviceW(DDD_REMOVE_DEFINITION, &wsSymbolicLink[4], NULL);
+// 	if (!DeviceIoControl(
+// 		(HANDLE)hEnDisk,            // handle to a volume
+// 		(DWORD)FSCTL_DISMOUNT_VOLUME,   // dwIoControlCode
+// 		NULL,                        // lpInBuffer
+// 		0,                           // nInBufferSize
+// 		NULL,                        // lpOutBuffer
+// 		0,                           // nOutBufferSize
+// 		&BytesReturned,   // number of bytes returned
+// 		NULL  // OVERLAPPED structure
+// 		))
+// 	{
+// 		CloseHandle(hEnDisk);
+// 		fprintf(stderr, "QueryDeviceStatus DeviceIoControl FSCTL_DISMOUNT_VOLUME error, errcode: %d\n", GetLastError());
+// 		return FALSE;
+// 	}
+
+
+	if (!DeviceIoControl(
+		hEnDisk,
+		IOCTL_FILE_DISK_CLOSE_FILE,
+		NULL,
+		0,
+		NULL,
+		0,
+		&BytesReturned,
+		NULL
+		))
+	{
+		CloseHandle(hEnDisk);
+		sprintf(strBuffer, "QueryDeviceStatus DeviceIoControl IOCTL_FILE_DISK_CLOSE_FILE error, errcode: %d\n", GetLastError());
+		OutputDebugStringA(strBuffer);
+		return FALSE;
+	}
+
+
+	CloseHandle(hEnDisk);
 
 	return TRUE;
 }
