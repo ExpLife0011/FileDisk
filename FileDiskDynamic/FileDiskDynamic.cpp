@@ -961,13 +961,13 @@ __declspec(dllexport)	BOOL MakeDisk(char DriveLetter)
 		DisMountVolum(letterList[i]);
 	}
 
-	OutputDebugStringW(L"删除分区信息\n");
-	DWORD r = DestroyDisk(phyNum);
-	if (r != 0)
-	{
-		OutputDebugStringW(L"删除分区失败\n");
-		return FALSE;
-	}
+	//OutputDebugStringW(L"删除分区信息\n");
+	//DWORD r = DestroyDisk(phyNum);
+	//if (r != 0)
+	//{
+	//	OutputDebugStringW(L"删除分区失败\n");
+	//	return FALSE;
+	//}
 
 	//这里制作特殊u盘的函数
 	WriteSpecialUDisk(letterList[0], phyNum, &driveInfo);
@@ -995,6 +995,7 @@ __declspec(dllexport)	BOOL MakeDisk(char DriveLetter)
 extern "C" __declspec(dllexport)	BOOL SetUDiskAuthority(DWORD Authority)
 {
 	g_Authority = Authority;
+	FDSendMessage(&g_Authority);
 	return TRUE;
 }
 

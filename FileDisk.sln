@@ -18,6 +18,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FileDiskDynamic", "FileDisk
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FileDiskDynamicTest", "FileDiskDynamicTest\FileDiskDynamicTest.vcxproj", "{34C65EB1-7079-42A4-B235-2D17D9E5101E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FormatTest", "FormatTest\FormatTest.vcxproj", "{92BD63B2-B908-4E80-8ADC-F0507FA6865B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -246,6 +248,30 @@ Global
 		{34C65EB1-7079-42A4-B235-2D17D9E5101E}.Win8.1 Release|Win32.Build.0 = Release|Win32
 		{34C65EB1-7079-42A4-B235-2D17D9E5101E}.Win8.1 Release|Win32.Deploy.0 = Release|Win32
 		{34C65EB1-7079-42A4-B235-2D17D9E5101E}.Win8.1 Release|x64.ActiveCfg = Release|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Debug|Win32.Build.0 = Debug|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Debug|x64.ActiveCfg = Debug|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Release|Win32.ActiveCfg = Release|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Release|Win32.Build.0 = Release|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Release|x64.ActiveCfg = Release|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win7 Debug|Win32.ActiveCfg = Debug|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win7 Debug|Win32.Build.0 = Debug|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win7 Debug|x64.ActiveCfg = Debug|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win7 Release|Win32.ActiveCfg = Release|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win7 Release|Win32.Build.0 = Release|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win7 Release|x64.ActiveCfg = Release|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win8 Debug|Win32.ActiveCfg = Debug|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win8 Debug|Win32.Build.0 = Debug|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win8 Debug|x64.ActiveCfg = Debug|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win8 Release|Win32.ActiveCfg = Release|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win8 Release|Win32.Build.0 = Release|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win8 Release|x64.ActiveCfg = Release|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win8.1 Debug|Win32.ActiveCfg = Debug|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win8.1 Debug|Win32.Build.0 = Debug|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win8.1 Debug|x64.ActiveCfg = Debug|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win8.1 Release|Win32.ActiveCfg = Release|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win8.1 Release|Win32.Build.0 = Release|Win32
+		{92BD63B2-B908-4E80-8ADC-F0507FA6865B}.Win8.1 Release|x64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
