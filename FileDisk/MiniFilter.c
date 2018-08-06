@@ -84,32 +84,6 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreCreateCallback(
 {
 
 	ULONG operationDescription;
-	PVOLUME_CONTEXT volCtx = NULL;
-	NTSTATUS status;
-
-	try
-	{
-		status = FltGetVolumeContext(FltObjects->Filter,
-			FltObjects->Volume,
-			&volCtx);
-
-		if (!NT_SUCCESS(status)) 
-		{
-
-			leave;
-		}
-
-		if (volCtx->is10MVolume)
-		{
-			Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
-			Data->IoStatus.Information = 0;
-			return FLT_PREOP_COMPLETE;
-		}
-	}
-	finally
-	{
-
-	}
 
 	operationDescription = ((Data->Iopb->Parameters.Create.Options >> 24) & 0x000000FF);
 	/*
@@ -191,6 +165,35 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreReadCallback(
 	PVOID *CompletionContext
 	)
 {
+
+	PVOLUME_CONTEXT volCtx = NULL;
+	NTSTATUS status;
+
+	try
+	{
+		status = FltGetVolumeContext(FltObjects->Filter,
+			FltObjects->Volume,
+			&volCtx);
+
+		if (!NT_SUCCESS(status))
+		{
+
+			leave;
+		}
+
+		if (volCtx->is10MVolume)
+		{
+			KdPrint(("FileDisk:这里禁用10M空间\n"));
+			Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+			Data->IoStatus.Information = 0;
+			return FLT_PREOP_COMPLETE;
+		}
+	}
+	finally
+	{
+
+	}
+
 	//拥有读写权限
 	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
 	{
@@ -605,6 +608,18 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 			ExFreePoolWithTag(DosName.Buffer, FILE_DISK_POOL_TAG);
 
 
+			//创建线程用于读取磁盘并发送消息
+
+			status = PsCreateSystemThread(
+				&threadHandle,
+				(ACCESS_MASK)0L,
+				NULL,
+				NULL,
+				NULL,
+				ReadUDiskThread,				
+				context
+				);
+
 
 			try
 			{
@@ -627,10 +642,17 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 				if (Is10MVolume(harddiskNo))
 				{
 					ctx->is10MVolume = 1;
+					KdPrint(("FileDisk: 绑定这10M的空间\n"));
+					FltSetVolumeContext(FltObjects->Volume,
+						FLT_SET_CONTEXT_REPLACE_IF_EXISTS,
+						ctx,
+						NULL);
+					return STATUS_SUCCESS;
 				}
 				else
 				{
 					ctx->is10MVolume = 0;
+					return STATUS_FLT_DO_NOT_ATTACH;
 				}
 
 			}
@@ -638,18 +660,6 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 			{
 
 			}
-
-			//创建线程用于读取磁盘并发送消息
-
-			status = PsCreateSystemThread(
-				&threadHandle,
-				(ACCESS_MASK)0L,
-				NULL,
-				NULL,
-				NULL,
-				ReadUDiskThread,				
-				context
-				);
 		}
 
  	}
@@ -753,12 +763,12 @@ IN ULONG hardDiskNo
 			0
 			);
 
-
 		if (!NT_SUCCESS(status))
 		{
 			KdPrint(("FileDisk ReadUdiskThread CreateFile error, errCode:%08x\n", status));
 			return FALSE;
 		}
+		KdPrint(("FileDisk: is10M CreateFile success\n"));
 
 		fileOffset.QuadPart = 0;
 		buffer = (PUCHAR)ExAllocatePoolWithTag(NonPagedPool, 512, FILE_DISK_POOL_TAG);
@@ -780,15 +790,19 @@ IN ULONG hardDiskNo
 		}
 		ZwClose(hUDisk);
 
+		KdPrint(("FileDisk: is10M readfile success\n"));
+
 		partitionSectors = *(DWORD *)&buffer[0x1CA];
 		partitionSize.QuadPart = partitionSectors * 512;
 
 		if (partitionSectors == 0x5000)
 		{
+			KdPrint(("FileDisk: is10M 这个是10M的大小\n"));
 			return TRUE;
 		}
 		else
 		{
+			KdPrint(("FileDisk: is10M 这个不是10M的大小\n"));
 			return FALSE;
 		}
 	}

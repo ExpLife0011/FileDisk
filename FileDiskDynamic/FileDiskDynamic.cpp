@@ -533,7 +533,7 @@ HRESULT indicating the status of thread exit.
 			char FileName[MAX_PATH] = { 0 };
 			DWORD PhyDriveNo = 0;
 			DRIVEINFO DriveInfo = {0};
-			GetPhysicalNum(driveLetter, &PhyDriveNo);
+// 			GetPhysicalNum(driveLetter, &PhyDriveNo);
 
 			//获取磁盘相关信息
 // 			GetPhysicalDriveInfo(PhyDriveNo, &DriveInfo);
