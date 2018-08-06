@@ -84,6 +84,32 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreCreateCallback(
 {
 
 	ULONG operationDescription;
+	PVOLUME_CONTEXT volCtx = NULL;
+	NTSTATUS status;
+
+	try
+	{
+		status = FltGetVolumeContext(FltObjects->Filter,
+			FltObjects->Volume,
+			&volCtx);
+
+		if (!NT_SUCCESS(status)) 
+		{
+
+			leave;
+		}
+
+		if (volCtx->is10MVolume)
+		{
+			Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+			Data->IoStatus.Information = 0;
+			return FLT_PREOP_COMPLETE;
+		}
+	}
+	finally
+	{
+
+	}
 
 	operationDescription = ((Data->Iopb->Parameters.Create.Options >> 24) & 0x000000FF);
 	/*
@@ -513,6 +539,7 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	UNICODE_STRING				DosName = {0};			//通过设备名称获取的盘符
 
 	ULONG						harddiskNo = 0;			//物理磁盘号
+	PVOLUME_CONTEXT				ctx = NULL;
 
 
 	char devicePath[260] = { 0 };
@@ -577,6 +604,40 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 
 			ExFreePoolWithTag(DosName.Buffer, FILE_DISK_POOL_TAG);
 
+
+
+			try
+			{
+				status = FltAllocateContext(FltObjects->Filter,
+					FLT_VOLUME_CONTEXT,
+					sizeof(VOLUME_CONTEXT),
+					NonPagedPool,
+					&ctx);
+
+				if (!NT_SUCCESS(status)) {
+
+					//
+					//  We could not allocate a context, quit now
+					//
+
+					leave;
+				}
+				RtlZeroMemory(ctx, sizeof(VOLUME_CONTEXT));
+
+				if (Is10MVolume(harddiskNo))
+				{
+					ctx->is10MVolume = 1;
+				}
+				else
+				{
+					ctx->is10MVolume = 0;
+				}
+
+			}
+			finally
+			{
+
+			}
 
 			//创建线程用于读取磁盘并发送消息
 
@@ -644,6 +705,99 @@ _In_ FLT_INSTANCE_QUERY_TEARDOWN_FLAGS Flags
 	return STATUS_SUCCESS;
 }
 
+
+BOOLEAN
+Is10MVolume(
+IN ULONG hardDiskNo
+)
+{
+	UNICODE_STRING				DeviceName = { 0 };
+	WCHAR						wc_DeviceName[512] = { 0 };
+	OBJECT_ATTRIBUTES			uDiskOa;
+	HANDLE						hUDisk;				//U盘句柄
+	IO_STATUS_BLOCK				iostatus;
+	PUCHAR						buffer = NULL;
+	LARGE_INTEGER				fileOffset;			//读取磁盘的偏移
+	NTSTATUS					status;
+	LARGE_INTEGER				partitionSize = {0};
+	ULONG						partitionSectors;
+
+	RtlInitEmptyUnicodeString(&DeviceName, wc_DeviceName, 512 * sizeof(WCHAR));
+	RtlStringCbPrintfW(DeviceName.Buffer, 512 * sizeof(WCHAR), L"\\??\\physicaldrive%d", hardDiskNo);
+	DeviceName.Length = wcslen(DeviceName.Buffer) * 2;
+
+	if (hardDiskNo != 0)
+	{
+		// \??\physicaldrive0 是系统所在的盘，如果为0的话，则该盘不是指定的u盘
+
+		InitializeObjectAttributes(&uDiskOa,
+			&DeviceName,
+			OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE,
+			NULL,
+			NULL);
+
+		status = ZwCreateFile(&hUDisk,
+			GENERIC_READ,
+			&uDiskOa,
+			&iostatus,
+			NULL,
+			FILE_ATTRIBUTE_NORMAL,
+			FILE_SHARE_READ,
+			FILE_OPEN,
+			FILE_NON_DIRECTORY_FILE |
+			FILE_RANDOM_ACCESS |
+			FILE_NO_INTERMEDIATE_BUFFERING |
+			FILE_SYNCHRONOUS_IO_NONALERT |
+			FILE_WRITE_THROUGH,
+			NULL,
+			0
+			);
+
+
+		if (!NT_SUCCESS(status))
+		{
+			KdPrint(("FileDisk ReadUdiskThread CreateFile error, errCode:%08x\n", status));
+			return FALSE;
+		}
+
+		fileOffset.QuadPart = 0;
+		buffer = (PUCHAR)ExAllocatePoolWithTag(NonPagedPool, 512, FILE_DISK_POOL_TAG);
+		status = ZwReadFile(
+			hUDisk,
+			NULL,
+			NULL,
+			NULL,
+			&iostatus,
+			buffer,
+			512,
+			&fileOffset,
+			NULL);
+
+		if (!NT_SUCCESS(status))
+		{
+			ZwClose(hUDisk);
+			return FALSE;
+		}
+		ZwClose(hUDisk);
+
+		partitionSectors = *(DWORD *)&buffer[0x1CA];
+		partitionSize.QuadPart = partitionSectors * 512;
+
+		if (partitionSectors == 0x5000)
+		{
+			return TRUE;
+		}
+		else
+		{
+			return FALSE;
+		}
+	}
+	else
+	{
+		return FALSE;
+	}
+
+}
 
 VOID
 ReadUDiskThread(
@@ -792,5 +946,40 @@ IN PVOID Context
 	{
 		KdPrint(("FileDisk MiniFilter: 驱动层发送消息失败：%08x\n", status));
 	}
+
+}
+
+
+VOID
+CleanupVolumeContext(
+_In_ PFLT_CONTEXT Context,
+_In_ FLT_CONTEXT_TYPE ContextType
+)
+/*++
+
+Routine Description:
+
+The given context is being freed.
+Free the allocated name buffer if there one.
+
+Arguments:
+
+Context - The context being freed
+
+ContextType - The type of context this is
+
+Return Value:
+
+None
+
+--*/
+{
+	PVOLUME_CONTEXT ctx = Context;
+
+	PAGED_CODE();
+
+	UNREFERENCED_PARAMETER(ContextType);
+
+	FLT_ASSERT(ContextType == FLT_VOLUME_CONTEXT);
 
 }

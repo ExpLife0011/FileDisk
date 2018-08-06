@@ -28,6 +28,8 @@
 
 #include "MiniFilter.h"		//add minifilter
 
+#include "filedisk.h"
+
 
 #define _EN_DECRYPT_		//¿ªÆô¼Ó½âÃÜ
 #define DEENCRYPT_LENGTH	512
@@ -287,6 +289,18 @@ CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
 	{ IRP_MJ_OPERATION_END }
 };
 
+
+CONST FLT_CONTEXT_REGISTRATION ContextNotifications[] = {
+
+	{ FLT_VOLUME_CONTEXT,
+	0,
+	CleanupVolumeContext,
+	sizeof(VOLUME_CONTEXT),
+	FILE_DISK_POOL_TAG },
+
+	{ FLT_CONTEXT_END }
+};
+
 //
 //  This defines what we want to filter with FltMgr
 //
@@ -297,7 +311,7 @@ CONST FLT_REGISTRATION FilterRegistration = {
 	FLT_REGISTRATION_VERSION,           //  Version
 	0,                                  //  Flags
 
-	NULL,                               //  Context
+	ContextNotifications,                               //  Context
 	Callbacks,                          //  Operation callbacks
 
 	MiniFilterUnload,                           //  MiniFilterUnload
@@ -340,7 +354,7 @@ ZwAdjustPrivilegesToken (
     OUT PULONG              ReturnLength
 );
 
-#include "filedisk.h"
+
 
 #define PARAMETER_KEY           L"\\Parameters"
 

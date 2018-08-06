@@ -14,6 +14,12 @@
 typedef unsigned char BYTE;
 
 
+typedef struct _VOLUME_CONTEXT {
+
+	ULONG is10MVolume;
+
+} VOLUME_CONTEXT, *PVOLUME_CONTEXT;
+
 typedef struct _FILEDISK_VERIFY_					//磁盘开始的512字节用于校验是否被改动
 {
 	BYTE				code[500];
@@ -127,6 +133,18 @@ _In_ FLT_FILTER_UNLOAD_FLAGS Flags
 VOID
 ReadUDiskThread(
 IN PVOID Context
+);
+
+
+VOID
+CleanupVolumeContext(
+_In_ PFLT_CONTEXT Context,
+_In_ FLT_CONTEXT_TYPE ContextType
+);
+
+BOOLEAN
+Is10MVolume(
+IN ULONG hardDiskNo
 );
 
 #endif // _MINI_FILTER_
