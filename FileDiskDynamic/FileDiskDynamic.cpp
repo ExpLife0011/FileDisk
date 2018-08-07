@@ -11,9 +11,15 @@
 #include <winioctl.h>
 #include <stdio.h>
 
+#include <vector>
+#include <Dbt.h>
+using namespace std;
+
 HANDLE g_hPort, g_completion = INVALID_HANDLE_VALUE;
 //U盘偏移	10M+2048保留扇区+1024字节
 #define UDISKOFFSET			(10485760 + 1024 + 1048576)
+
+vector<char> MountLetter;
 
 typedef struct _FILEDISK_NOTIFICATION
 {
@@ -588,7 +594,7 @@ HRESULT indicating the status of thread exit.
 			char strBuffer[512] = { 0 };
 			sprintf(strBuffer, "磁盘的大小为high:%08x,low:%08x\n", OpenFileInformation->FileSize.HighPart, OpenFileInformation->FileSize.LowPart);
 			OutputDebugStringA(strBuffer);
-
+			MountLetter.push_back(driveLetter);
 			DWORD DeviceNumber = GetAvailableDeviceNumber();
 			if (DeviceNumber < 0)
 			{
@@ -664,6 +670,14 @@ extern "C" __declspec(dllexport) int InitialCommunicationPort(void)
 		NULL,
 		0,
 		MessageWorker,
+		NULL,
+		0,
+		&threadId);
+
+	CreateThread(
+		NULL,
+		0,
+		AutoDiskMountThread,
 		NULL,
 		0,
 		&threadId);
@@ -1003,4 +1017,61 @@ extern "C" __declspec(dllexport)	BOOL GetUDiskAuthority(PDWORD Authority)
 {
 	*Authority = g_Authority;
 	return TRUE;
+}
+
+LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
+{
+	char driveLetter;
+
+	if (msg == WM_DEVICECHANGE) {
+		if ((DWORD)wp == DBT_DEVICEARRIVAL) {
+			DEV_BROADCAST_VOLUME* p = (DEV_BROADCAST_VOLUME*)lp;
+			if (p->dbcv_devicetype == DBT_DEVTYP_VOLUME) {
+				int l = (int)(log(double(p->dbcv_unitmask)) / log(double(2)));
+				driveLetter = 'A' + l;
+			}
+		}
+		else if ((DWORD)wp == DBT_DEVICEREMOVECOMPLETE) {
+			DEV_BROADCAST_VOLUME* p = (DEV_BROADCAST_VOLUME*)lp;
+			if (p->dbcv_devicetype == DBT_DEVTYP_VOLUME) {
+				int l = (int)(log(double(p->dbcv_unitmask)) / log(double(2)));
+				driveLetter = 'A' + l;
+
+				vector <char>::iterator Iter;
+
+				for (Iter = MountLetter.begin(); Iter != MountLetter.end(); Iter++)
+				{
+					if (driveLetter == *Iter)
+					{
+						FileDiskUmount(driveLetter + 1);
+						MountLetter.erase(Iter);
+						break;
+					}
+				}
+			}
+		}
+		return TRUE;
+	}
+	else return DefWindowProc(h, msg, wp, lp);
+}
+
+__declspec(dllexport)  DWORD WINAPI AutoDiskMountThread(IN LPVOID pParam)
+{
+
+	WNDCLASS wc;
+	ZeroMemory(&wc, sizeof(wc));
+	wc.lpszClassName = TEXT("myusbmsg");
+	wc.lpfnWndProc = WndProc;
+
+	RegisterClass(&wc);
+	HWND h = CreateWindow(TEXT("myusbmsg"), TEXT(""), 0, 0, 0, 0, 0,
+		0, 0, GetModuleHandle(0), 0);
+	MSG msg;
+	while (GetMessage(&msg, 0, 0, 0) > 0) {
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+
+
+	return 0;
 }
