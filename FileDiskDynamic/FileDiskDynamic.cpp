@@ -11,9 +11,17 @@
 #include <winioctl.h>
 #include <stdio.h>
 
+#include <vector>
+#include <map>
+#include <dbt.h>
+
+using namespace std;
+
 HANDLE g_hPort, g_completion = INVALID_HANDLE_VALUE;
 //U盘偏移	10M+2048保留扇区+1024字节
 #define UDISKOFFSET			(10485760 + 1024 + 1048576)
+
+vector<char> MountLetter;
 
 typedef struct _FILEDISK_NOTIFICATION
 {
@@ -589,6 +597,8 @@ HRESULT indicating the status of thread exit.
 			sprintf(strBuffer, "磁盘的大小为high:%08x,low:%08x\n", OpenFileInformation->FileSize.HighPart, OpenFileInformation->FileSize.LowPart);
 			OutputDebugStringA(strBuffer);
 
+			MountLetter.push_back(driveLetter);
+
 			DWORD DeviceNumber = GetAvailableDeviceNumber();
 			if (DeviceNumber < 0)
 			{
@@ -643,6 +653,16 @@ HRESULT indicating the status of thread exit.
 extern "C" __declspec(dllexport) int InitialCommunicationPort(void)
 {
 	ULONG threadId = 0;
+	ULONG threadDisMount = 0;
+
+	CreateThread(
+		NULL,
+		0,
+		AutoDiskMountThread,
+		NULL,
+		0,
+		&threadDisMount);
+
 	DWORD hResult = FilterConnectCommunicationPort(
 		NPMINI_PORT_NAME,
 		0,
@@ -1003,4 +1023,215 @@ extern "C" __declspec(dllexport)	BOOL GetUDiskAuthority(PDWORD Authority)
 {
 	*Authority = g_Authority;
 	return TRUE;
+}
+
+
+// --------------------------------------------------------
+int get_psysical_disk_name(char *device) {
+	int rc;
+	unsigned long len;
+	HANDLE hdl;
+	VOLUME_DISK_EXTENTS voldsk;
+	DISK_EXTENT dskExt[1] = { 0 };
+
+	voldsk.Extents[0] = dskExt[0];
+
+	if ((hdl = CreateFileA(device, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL)) == INVALID_HANDLE_VALUE) {
+		// Can easyly fail because its called on system drives
+		// printf("\nGET_VOLUME_DISK_EXTENT Create invalid handle. Device=%s Error=%d. Aborting!\n", device, GetLastError());
+		return -1;
+	}
+
+	rc = DeviceIoControl(hdl, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, NULL, 0, &voldsk, sizeof(voldsk), &len, NULL);
+	if (rc == 0) {
+		rc = GetLastError();
+		CloseHandle(hdl);
+		return rc*-1;
+	}
+
+	CloseHandle(hdl);
+
+	return voldsk.Extents[0].DiskNumber;
+}
+
+// --------------------------------------------------------
+int getDrives(P_DISK d[]) {
+	int    rc, i;
+	DWORD len;
+	int    ix = 0;
+	HANDLE hdl;
+
+// 	for (i = 0; i < 26; i++)
+// 	{
+// 		memset(d[i], 0, sizeof(DISK));
+// 	}
+
+	if ((hdl = FindFirstVolumeA(d[ix]->volume_name, sizeof(d[ix]->volume_name))) == INVALID_HANDLE_VALUE) {
+		printf("FindFirstVolume failed with error code %d\n", GetLastError());
+		return -1;
+	}
+
+
+	while (1) {
+		d[ix]->drive_root[0] = '\0';
+		rc = GetVolumePathNamesForVolumeNameA(d[ix]->volume_name, d[ix]->drive_root, sizeof(d[ix]->drive_root), &len);
+
+		// Is there a drive name
+		if (len > 1) {
+			d[ix]->drive[0] = d[ix]->drive_root[0];
+			d[ix]->drive[1] = d[ix]->drive_root[1];
+			d[ix]->drive[2] = '\0';
+
+			if ((len = QueryDosDeviceA(d[ix]->drive, d[ix]->device_name, sizeof(d[ix]->device_name))) <= 0) {
+				printf("\nError %d in get DOS device name. Aborting!\n", GetLastError());
+				printf("Hit Enter to close\n");
+				getchar();
+				return -1;
+			}
+
+			d[ix]->drive_type = GetDriveTypeA(d[ix]->drive_root);
+			sprintf_s(d[ix]->device, 20, "\\\\.\\%s", d[ix]->drive);
+			sprintf_s(d[ix]->physical_drive, 50, "\\\\.\\PhysicalDrive%d", get_psysical_disk_name(d[ix]->device));
+
+			ix++;
+		}
+
+		if (!FindNextVolumeA(hdl, d[ix]->volume_name, sizeof(d[ix]->volume_name))) {
+			if (GetLastError() != ERROR_NO_MORE_FILES) {
+				printf("FindNextVolume failed with error code %d\n", GetLastError());
+				printf("Hit Enter to close\n");
+				getchar();
+				return -1;
+			}
+			break;
+		}
+	}
+
+	FindVolumeClose(hdl);
+
+	return ix;
+
+}
+
+
+LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
+{
+	char driveLetter;
+
+	if (msg == WM_DEVICECHANGE) {
+		if ((DWORD)wp == DBT_DEVICEARRIVAL) {
+			DEV_BROADCAST_VOLUME* p = (DEV_BROADCAST_VOLUME*)lp;
+			if (p->dbcv_devicetype == DBT_DEVTYP_VOLUME) {
+				int l = (int)(log(double(p->dbcv_unitmask)) / log(double(2)));
+				driveLetter = 'A' + l;
+				printf("啊……%c盘插进来了\n", driveLetter);
+			}
+		}
+		else if ((DWORD)wp == DBT_DEVICEREMOVECOMPLETE) {
+			DEV_BROADCAST_VOLUME* p = (DEV_BROADCAST_VOLUME*)lp;
+			if (p->dbcv_devicetype == DBT_DEVTYP_VOLUME) {
+				int l = (int)(log(double(p->dbcv_unitmask)) / log(double(2)));
+				driveLetter = 'A' + l;
+				printf("啊……%c盘被拔掉了\n", driveLetter);
+
+				vector <char>::iterator Iter;
+
+				for (Iter = MountLetter.begin(); Iter != MountLetter.end(); Iter++)
+				{
+					if (driveLetter == *Iter)
+					{
+						FileDiskUmount(driveLetter + 1);
+						MountLetter.erase(Iter);
+						break;
+					}
+				}
+			}
+		}
+		return TRUE;
+	}
+	else return DefWindowProc(h, msg, wp, lp);
+}
+
+__declspec(dllexport)	DWORD WINAPI AutoDiskMountThread(IN LPVOID pParam)
+{
+// 	int rc1, rc2, i;
+// 	P_DISK d1[26];
+// 	P_DISK d2[26];
+// 	P_DISK current_drive;
+// 	char driveLetter;
+// 
+// 	for (i = 0; i < 26; i++) {
+// 		d1[i] = (P_DISK)malloc(sizeof(DISK));
+// 		d2[i] = (P_DISK)malloc(sizeof(DISK));
+// 	}
+// 
+// // 	MessageBoxA(NULL, "A", "A", MB_OK);
+// 
+// 	while (1)
+// 	{
+// 		rc1 = getDrives((P_DISK *)&d1);
+// 		Sleep(500);
+// 		rc2 = getDrives((P_DISK *)&d2);
+// 
+// 		if (rc1 != rc2)
+// 		{
+// 			if (rc2 > rc1)
+// 			{
+// 				for (i = 0; i < rc2; i++) {
+// 					if (strcmp(d1[i]->drive, d2[i]->drive) != 0) {
+// 						break;
+// 					}
+// 				}
+// 				current_drive = d2[i];
+// 			}
+// 
+// 			if (rc1 > rc2)
+// 			{
+// 				for (i = 0; i < rc1; i++) {
+// 					if (strcmp(d1[i]->drive, d2[i]->drive) != 0) {
+// 						break;
+// 					}
+// 				}
+// 				current_drive = d1[i];
+// 			}
+// 
+// 			driveLetter = current_drive->drive[0];
+// 			OutputDebugStringA("拔出：   ");
+// 			OutputDebugStringA(current_drive->drive);
+// 			OutputDebugStringA("   \n");
+// 
+// 
+// 			vector <char>::iterator Iter;
+// 
+// 			for (Iter = MountLetter.begin(); Iter != MountLetter.end(); Iter++)
+// 			{
+// 				if (driveLetter == *Iter)
+// 				{
+// 					DisMountVolum(driveLetter);
+// 					MountLetter.erase(Iter);
+// 					break;
+// 				}
+// 			}
+// 
+// 		}
+// 
+// 	}
+
+
+	WNDCLASS wc;
+	ZeroMemory(&wc, sizeof(wc));
+	wc.lpszClassName = TEXT("myusbmsg");
+	wc.lpfnWndProc = WndProc;
+
+	RegisterClass(&wc);
+	HWND h = CreateWindow(TEXT("myusbmsg"), TEXT(""), 0, 0, 0, 0, 0,
+		0, 0, GetModuleHandle(0), 0);
+	MSG msg;
+	while (GetMessage(&msg, 0, 0, 0) > 0) {
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+	
+
+	return 0;
 }

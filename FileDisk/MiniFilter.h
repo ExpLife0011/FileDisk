@@ -17,6 +17,7 @@ typedef unsigned char BYTE;
 typedef struct _VOLUME_CONTEXT {
 
 	ULONG is10MVolume;
+	ULONG isSecUDisk;
 
 } VOLUME_CONTEXT, *PVOLUME_CONTEXT;
 

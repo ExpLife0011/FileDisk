@@ -27,6 +27,16 @@ typedef struct _COMMAND_MESSAGE {
 } COMMAND_MESSAGE, *PCOMMAND_MESSAGE;
 
 
+typedef struct _disk {
+	char drive[MAX_PATH];
+	char drive_root[MAX_PATH];
+	char device_name[MAX_PATH];
+	char volume_name[MAX_PATH];
+	char device[20];
+	char physical_drive[50];
+	int  drive_type;
+} DISK, *P_DISK;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -41,6 +51,8 @@ __declspec(dllexport)	DWORD GetAvailableDeviceNumber();
 __declspec(dllexport)	BOOL MakeDisk(char DriveLetter);						//这个弃用
 __declspec(dllexport)	BOOL SetUDiskAuthority(DWORD Authority);				//设置介质的权限
 __declspec(dllexport)	BOOL GetUDiskAuthority(PDWORD Authority);				//获取介质的权限
+__declspec(dllexport)	DWORD WINAPI AutoDiskMountThread(IN LPVOID pParam);
+int getDrives(P_DISK d[]);
 
 #ifdef __cplusplus
 }

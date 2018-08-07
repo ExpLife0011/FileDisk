@@ -104,36 +104,36 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreCreateCallback(
 
 
 	
-	//拥有读写权限
-	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
-	{
-		KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE Authority: FILEDISK_WRITE_AUTHORITY\n"));
-		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
-	}
+	////拥有读写权限
+	//if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
+	//{
+	//	KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE Authority: FILEDISK_WRITE_AUTHORITY\n"));
+	//	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	//}
 
-	//拥有读权限
-	if (FlagOn(g_filediskAuthority, FILEDISK_READ_AUTHORITY))
-	{
-		KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE Authority: FILEDISK_READ_AUTHORITY\n"));
+	////拥有读权限
+	//if (FlagOn(g_filediskAuthority, FILEDISK_READ_AUTHORITY))
+	//{
+	//	KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE Authority: FILEDISK_READ_AUTHORITY\n"));
 
-		if (operationDescription != FILE_OPENED)
-		{
-			Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;		//磁盘写保护
-			Data->IoStatus.Information = 0;
+	//	if (operationDescription != FILE_OPENED)
+	//	{
+	//		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;		//磁盘写保护
+	//		Data->IoStatus.Information = 0;
 
-			KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE return STATUS_MEDIA_WRITE_PROTECTED\n"));
-			return FLT_PREOP_COMPLETE;
-		}
-	}
+	//		KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE return STATUS_MEDIA_WRITE_PROTECTED\n"));
+	//		return FLT_PREOP_COMPLETE;
+	//	}
+	//}
 
-	//禁用
-	if (g_filediskAuthority == FILEDISK_NONE_AUTHORITY)
-	{
-		KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE Authority: FILEDISK_READ_AUTHORITY\n"));
-		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
-		Data->IoStatus.Information = 0;
-		return FLT_PREOP_COMPLETE;
-	}
+	////禁用
+	//if (g_filediskAuthority == FILEDISK_NONE_AUTHORITY)
+	//{
+	//	KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE Authority: FILEDISK_READ_AUTHORITY\n"));
+	//	Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+	//	Data->IoStatus.Information = 0;
+	//	return FLT_PREOP_COMPLETE;
+	//}
 
 	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
 }
@@ -166,56 +166,56 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreReadCallback(
 	)
 {
 
-	PVOLUME_CONTEXT volCtx = NULL;
-	NTSTATUS status;
+	//PVOLUME_CONTEXT volCtx = NULL;
+	//NTSTATUS status;
 
-	try
-	{
-		status = FltGetVolumeContext(FltObjects->Filter,
-			FltObjects->Volume,
-			&volCtx);
+	//try
+	//{
+	//	status = FltGetVolumeContext(FltObjects->Filter,
+	//		FltObjects->Volume,
+	//		&volCtx);
 
-		if (!NT_SUCCESS(status))
-		{
+	//	if (!NT_SUCCESS(status))
+	//	{
 
-			leave;
-		}
+	//		leave;
+	//	}
 
-		if (volCtx->is10MVolume)
-		{
-			KdPrint(("FileDisk:这里禁用10M空间\n"));
-			Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
-			Data->IoStatus.Information = 0;
-			return FLT_PREOP_COMPLETE;
-		}
-	}
-	finally
-	{
+	//	if (volCtx->is10MVolume)
+	//	{
+	//		KdPrint(("FileDisk:这里禁用10M空间\n"));
+	//		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+	//		Data->IoStatus.Information = 0;
+	//		return FLT_PREOP_COMPLETE;
+	//	}
+	//}
+	//finally
+	//{
 
-	}
+	//}
 
-	//拥有读写权限
-	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
-	{
-		KdPrint(("FileDisk MiniFilter: IRP_MJ_WRITE Authority: FILEDISK_WRITE_AUTHORITY\n"));
-		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
-	}
+	////拥有读写权限
+	//if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
+	//{
+	//	KdPrint(("FileDisk MiniFilter: IRP_MJ_WRITE Authority: FILEDISK_WRITE_AUTHORITY\n"));
+	//	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	//}
 
-	//拥有读权限
-	if (FlagOn(g_filediskAuthority, FILEDISK_READ_AUTHORITY))
-	{
-		KdPrint(("FileDisk MiniFilter: IRP_MJ_WRITE Authority: FILEDISK_READ_AUTHORITY\n"));
-		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
-	}
+	////拥有读权限
+	//if (FlagOn(g_filediskAuthority, FILEDISK_READ_AUTHORITY))
+	//{
+	//	KdPrint(("FileDisk MiniFilter: IRP_MJ_WRITE Authority: FILEDISK_READ_AUTHORITY\n"));
+	//	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	//}
 
-	//禁用
-	if (g_filediskAuthority == FILEDISK_NONE_AUTHORITY)
-	{
-		KdPrint(("FileDisk MiniFilter: IRP_MJ_WRITE Authority: FILEDISK_NONE_AUTHORITY\n"));
-		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
-		Data->IoStatus.Information = 0;
-		return FLT_PREOP_COMPLETE;
-	}
+	////禁用
+	//if (g_filediskAuthority == FILEDISK_NONE_AUTHORITY)
+	//{
+	//	KdPrint(("FileDisk MiniFilter: IRP_MJ_WRITE Authority: FILEDISK_NONE_AUTHORITY\n"));
+	//	Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+	//	Data->IoStatus.Information = 0;
+	//	return FLT_PREOP_COMPLETE;
+	//}
 
 	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
 }
@@ -247,30 +247,30 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreWriteCallback(
 	PVOID *CompletionContext
 	)
 {
-	//拥有读写权限
-	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
-	{
-		KdPrint(("FileDisk MiniFilter: IRP_MJ_READ Authority: FILEDISK_WRITE_AUTHORITY\n"));
-		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
-	}
+	////拥有读写权限
+	//if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
+	//{
+	//	KdPrint(("FileDisk MiniFilter: IRP_MJ_READ Authority: FILEDISK_WRITE_AUTHORITY\n"));
+	//	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	//}
 
-	//拥有读权限
-	if (FlagOn(g_filediskAuthority, FILEDISK_READ_AUTHORITY))
-	{
-		KdPrint(("FileDisk MiniFilter: IRP_MJ_READ Authority: FILEDISK_READ_AUTHORITY\n"));
-		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
-		Data->IoStatus.Information = 0;
-		return FLT_PREOP_COMPLETE;
-	}
+	////拥有读权限
+	//if (FlagOn(g_filediskAuthority, FILEDISK_READ_AUTHORITY))
+	//{
+	//	KdPrint(("FileDisk MiniFilter: IRP_MJ_READ Authority: FILEDISK_READ_AUTHORITY\n"));
+	//	Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+	//	Data->IoStatus.Information = 0;
+	//	return FLT_PREOP_COMPLETE;
+	//}
 
-	//禁用
-	if ( g_filediskAuthority == FILEDISK_NONE_AUTHORITY )
-	{
-		KdPrint(("FileDisk MiniFilter: IRP_MJ_READ Authority: FILEDISK_NONE_AUTHORITY\n"));
-		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
-		Data->IoStatus.Information = 0;
-		return FLT_PREOP_COMPLETE;
-	}
+	////禁用
+	//if ( g_filediskAuthority == FILEDISK_NONE_AUTHORITY )
+	//{
+	//	KdPrint(("FileDisk MiniFilter: IRP_MJ_READ Authority: FILEDISK_NONE_AUTHORITY\n"));
+	//	Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+	//	Data->IoStatus.Information = 0;
+	//	return FLT_PREOP_COMPLETE;
+	//}
 
 	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
 }
@@ -621,45 +621,45 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 				);
 
 
-			try
-			{
-				status = FltAllocateContext(FltObjects->Filter,
-					FLT_VOLUME_CONTEXT,
-					sizeof(VOLUME_CONTEXT),
-					NonPagedPool,
-					&ctx);
+			//try
+			//{
+			//	status = FltAllocateContext(FltObjects->Filter,
+			//		FLT_VOLUME_CONTEXT,
+			//		sizeof(VOLUME_CONTEXT),
+			//		NonPagedPool,
+			//		&ctx);
 
-				if (!NT_SUCCESS(status)) {
+			//	if (!NT_SUCCESS(status)) {
 
-					//
-					//  We could not allocate a context, quit now
-					//
+			//		//
+			//		//  We could not allocate a context, quit now
+			//		//
 
-					leave;
-				}
-				RtlZeroMemory(ctx, sizeof(VOLUME_CONTEXT));
+			//		leave;
+			//	}
+			//	RtlZeroMemory(ctx, sizeof(VOLUME_CONTEXT));
 
-				if (Is10MVolume(harddiskNo))
-				{
-					ctx->is10MVolume = 1;
-					KdPrint(("FileDisk: 绑定这10M的空间\n"));
-					FltSetVolumeContext(FltObjects->Volume,
-						FLT_SET_CONTEXT_REPLACE_IF_EXISTS,
-						ctx,
-						NULL);
-					return STATUS_SUCCESS;
-				}
-				else
-				{
-					ctx->is10MVolume = 0;
-					return STATUS_FLT_DO_NOT_ATTACH;
-				}
+			//	if (Is10MVolume(harddiskNo))
+			//	{
+			//		ctx->is10MVolume = 1;
+			//		KdPrint(("FileDisk: 绑定这10M的空间\n"));
+			//		FltSetVolumeContext(FltObjects->Volume,
+			//			FLT_SET_CONTEXT_REPLACE_IF_EXISTS,
+			//			ctx,
+			//			NULL);
+			//		return STATUS_SUCCESS;
+			//	}
+			//	else
+			//	{
+			//		ctx->is10MVolume = 0;
+			//		return STATUS_FLT_DO_NOT_ATTACH;
+			//	}
 
-			}
-			finally
-			{
+			//}
+			//finally
+			//{
 
-			}
+			//}
 		}
 
  	}
