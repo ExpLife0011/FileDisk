@@ -204,6 +204,25 @@
       <AdditionalDependencies>wdmsec.lib;FltMgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Release|Win32'">
+    <ClCompile>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <Optimization>Disabled</Optimization>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>wdmsec.lib;FltMgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Release|x64'">
+    <Link>
+      <AdditionalDependencies>wdmsec.lib;FltMgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <ClCompile>
+      <TreatWarningAsError>false</TreatWarningAsError>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <FilesToPackage Include="$(TargetPath)" />
     <FilesToPackage Include="@(Inf->'%(CopyOutput)')" Condition="'@(Inf)'!=''" />

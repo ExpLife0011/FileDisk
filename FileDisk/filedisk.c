@@ -287,6 +287,18 @@ CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
 	{ IRP_MJ_OPERATION_END }
 };
 
+#include "filedisk.h"
+
+CONST FLT_CONTEXT_REGISTRATION ContextNotifications[] = {
+
+	{ FLT_VOLUME_CONTEXT,
+	0,
+	CleanupVolumeContext,
+	sizeof(VOLUME_CONTEXT),
+	FILE_DISK_POOL_TAG },
+
+	{ FLT_CONTEXT_END }
+};
 //
 //  This defines what we want to filter with FltMgr
 //
@@ -297,7 +309,7 @@ CONST FLT_REGISTRATION FilterRegistration = {
 	FLT_REGISTRATION_VERSION,           //  Version
 	0,                                  //  Flags
 
-	NULL,                               //  Context
+	ContextNotifications,                               //  Context
 	Callbacks,                          //  Operation callbacks
 
 	MiniFilterUnload,                           //  MiniFilterUnload
@@ -340,7 +352,7 @@ ZwAdjustPrivilegesToken (
     OUT PULONG              ReturnLength
 );
 
-#include "filedisk.h"
+
 
 #define PARAMETER_KEY           L"\\Parameters"
 
@@ -576,7 +588,7 @@ DriverEntry (
 		FDMiniConnect,
 		FDMiniDisconnect,
 		FDMiniMessage,
-		1);
+		50);			//修改客户端最大连接数
 
 	if (!NT_SUCCESS(status)) {
 
@@ -1975,13 +1987,14 @@ FileDiskOpenFile (
 
     status = ZwCreateFile(
         &device_extension->file_handle,
-		device_extension->read_only ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
+// 		device_extension->read_only ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
+		GENERIC_READ | GENERIC_WRITE,
         &object_attributes,
         &Irp->IoStatus,
         NULL,
         FILE_ATTRIBUTE_NORMAL,
-        device_extension->read_only ? FILE_SHARE_READ : 0,
-// 		FILE_SHARE_READ,
+//         device_extension->read_only ? FILE_SHARE_READ : 0,
+ 		FILE_SHARE_READ | FILE_SHARE_WRITE,
         FILE_OPEN,
 		FILE_NON_DIRECTORY_FILE |
 		FILE_RANDOM_ACCESS |
@@ -2019,7 +2032,8 @@ FileDiskOpenFile (
                 &Irp->IoStatus,
                 NULL,
                 FILE_ATTRIBUTE_NORMAL,
-                0,
+//                 0,
+				FILE_SHARE_READ | FILE_SHARE_WRITE,
                 FILE_OPEN_IF,
                 FILE_NON_DIRECTORY_FILE |
                 FILE_RANDOM_ACCESS |

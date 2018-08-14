@@ -41,7 +41,7 @@ __declspec(dllexport)	DWORD GetAvailableDeviceNumber();
 __declspec(dllexport)	BOOL MakeDisk(char DriveLetter);						//这个弃用
 __declspec(dllexport)	BOOL SetUDiskAuthority(DWORD Authority);				//设置介质的权限
 __declspec(dllexport)	BOOL GetUDiskAuthority(PDWORD Authority);				//获取介质的权限
-__declspec(dllexport)  DWORD WINAPI AutoDiskMountThread(IN LPVOID pParam);
+__declspec(dllexport)   DWORD WINAPI AutoDiskMountThread(IN LPVOID pParam);
 #ifdef __cplusplus
 }
 #endif

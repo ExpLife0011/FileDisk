@@ -28,7 +28,7 @@ BOOLEAN FDUnicodeStringToChar(PUNICODE_STRING UniName, char Name[])
 			nameptr = (PCHAR)AnsiName.Buffer;
 			//Convert into upper case and copy to buffer
 			strcpy(Name, _strupr(nameptr));
-			DbgPrint("FileDisk:FDUnicodeStringToChar : %s\n", Name);
+// 			DbgPrint("FileDisk:FDUnicodeStringToChar : %s\n", Name);
 		}
 		RtlFreeAnsiString(&AnsiName);
 	}
@@ -82,8 +82,26 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreCreateCallback(
 	PVOID *CompletionContext
 	)
 {
+	PVOLUME_CONTEXT ctx = NULL;
 
 	ULONG operationDescription;
+
+	NTSTATUS status;
+
+
+	status = FltGetVolumeContext(
+		FltObjects->Filter,
+		FltObjects->Volume,
+		&ctx);
+
+	if (NT_SUCCESS(status))
+	{
+		KdPrint(("FileDisk: Create10M空间禁用\n"));
+		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+		Data->IoStatus.Information = 0;
+		return FLT_PREOP_COMPLETE;
+	}
+
 
 	operationDescription = ((Data->Iopb->Parameters.Create.Options >> 24) & 0x000000FF);
 	/*
@@ -103,7 +121,7 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreCreateCallback(
 	KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE operationDescription=%d\n", operationDescription));
 
 
-	
+
 	//拥有读写权限
 	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
 	{
@@ -136,6 +154,10 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreCreateCallback(
 	}
 
 	return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+		
+
+
+
 }
 
 /************************************************************************/
@@ -482,6 +504,101 @@ OUT PULONG PhysicalNumber
 }
 
 
+BOOLEAN
+Is10MVolume(
+IN ULONG hardDiskNo
+)
+{
+	UNICODE_STRING                          DeviceName = { 0 };
+	WCHAR                                           wc_DeviceName[512] = { 0 };
+	OBJECT_ATTRIBUTES                       uDiskOa;
+	HANDLE                                          hUDisk;
+	IO_STATUS_BLOCK                         iostatus;
+	PUCHAR                                          buffer = NULL;
+	LARGE_INTEGER                           fileOffset;
+	NTSTATUS                                        status;
+	LARGE_INTEGER                           partitionSize = { 0 };
+	ULONG                                           partitionSectors;
+
+	RtlInitEmptyUnicodeString(&DeviceName, wc_DeviceName, 512 * sizeof(WCHAR));
+	RtlStringCbPrintfW(DeviceName.Buffer, 512 * sizeof(WCHAR), L"\\??\\physicaldrive%d", hardDiskNo);
+	DeviceName.Length = wcslen(DeviceName.Buffer) * 2;
+
+	if (hardDiskNo != 0)
+	{
+
+		InitializeObjectAttributes(&uDiskOa,
+			&DeviceName,
+			OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE,
+			NULL,
+			NULL);
+
+		status = ZwCreateFile(&hUDisk,
+			GENERIC_READ | GENERIC_WRITE,
+			&uDiskOa,
+			&iostatus,
+			NULL,
+			FILE_ATTRIBUTE_NORMAL,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			FILE_OPEN,
+			FILE_NON_DIRECTORY_FILE |
+			FILE_RANDOM_ACCESS |
+			FILE_NO_INTERMEDIATE_BUFFERING |
+			FILE_SYNCHRONOUS_IO_NONALERT |
+			FILE_WRITE_THROUGH,
+			NULL,
+			0
+			);
+
+		if (!NT_SUCCESS(status))
+		{
+			KdPrint(("FileDisk ReadUdiskThread CreateFile error, errCode:%08x\n", status));
+			return FALSE;
+		}
+		KdPrint(("FileDisk: is10M CreateFile success\n"));
+
+		fileOffset.QuadPart = 0;
+		buffer = (PUCHAR)ExAllocatePoolWithTag(NonPagedPool, 512, FILE_DISK_POOL_TAG);
+		status = ZwReadFile(
+			hUDisk,
+			NULL,
+			NULL,
+			NULL,
+			&iostatus,
+			buffer,
+			512,
+			&fileOffset,
+			NULL);
+
+		if (!NT_SUCCESS(status))
+		{
+			ZwClose(hUDisk);
+			return FALSE;
+		}
+		ZwClose(hUDisk);
+
+		KdPrint(("FileDisk: is10M readfile success\n"));
+
+		partitionSectors = *(DWORD *)&buffer[0x1CA];
+		partitionSize.QuadPart = partitionSectors * 512;
+
+		if (partitionSectors == 0x5000)
+		{
+			return TRUE;
+		}
+		else
+		{
+			return FALSE;
+		}
+	}
+	else
+	{
+		return FALSE;
+	}
+
+}
+
+
 NTSTATUS
 MiniFilterInstanceSetup(
 _In_ PCFLT_RELATED_OBJECTS FltObjects,
@@ -513,6 +630,7 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 	UNICODE_STRING				DosName = {0};			//通过设备名称获取的盘符
 
 	ULONG						harddiskNo = 0;			//物理磁盘号
+	PVOLUME_CONTEXT                         ctx = NULL;
 
 
 	char devicePath[260] = { 0 };
@@ -548,17 +666,6 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 			&retLen);
 		workingName = &volProp->RealDeviceName;
 
-		//过滤一个设备卷
-
-// 		if (FDUnicodeStringToChar(workingName, devicePath))
-// 		{
-// 			if (strstr(devicePath, "VOLUME") != NULL)
-// 			{
-// 				//说明这是一个卷设备
-// 				KdPrint(("FileDisk: 这是一个设备卷\n"));
-// 				return STATUS_UNSUCCESSFUL;
-// 			}
-// 		}
 
 		//获取盘符
 		status = MyRtlVolumeDeviceToDosName(workingName, &DosName);
@@ -567,6 +674,8 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 
 		if (NT_SUCCESS(status))
 		{
+			KdPrint(("FileDisk: MINI_FILTER realDeviceName: %wZ\n", workingName));
+
 			context = (PREAD_UDISK_CONTEXT)ExAllocatePoolWithTag(NonPagedPool, sizeof(READ_UDISK_CONTEXT), FILE_DISK_POOL_TAG);
 
 			context->deviceName = (PWCH)ExAllocatePoolWithTag(NonPagedPool, 2 * wcslen(DosName.Buffer) + 2, FILE_DISK_POOL_TAG);  //多两个字节用于填充0000
@@ -586,10 +695,54 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 				NULL,
 				NULL,
 				NULL,
-				ReadUDiskThread,				
+				ReadUDiskThread,
 				context
 				);
+
+
+
+			//判断这个盘是否是10M的空间
+			if (Is10MVolume(harddiskNo))
+			{
+				RtlZeroMemory(devicePath, 260);
+				if (FDUnicodeStringToChar(workingName, devicePath))
+				{
+					//
+					if (strstr(devicePath, "\\DEVICE\\HARDDISKVOLUME") != NULL)
+					{
+						status = FltAllocateContext(
+							FltObjects->Filter,
+							FLT_VOLUME_CONTEXT,
+							sizeof(VOLUME_CONTEXT),
+							NonPagedPool,
+							&ctx
+							);
+
+						if (NT_SUCCESS(status))
+						{
+							RtlZeroMemory(ctx, sizeof(VOLUME_CONTEXT));
+							FltSetVolumeContext(
+								FltObjects->Volume,
+								FLT_SET_CONTEXT_REPLACE_IF_EXISTS,
+								ctx,
+								NULL);
+
+							KdPrint(("FileDisk: 设置上下文\n"));
+							KdPrint(("FileDisk: 这10M的卷名为：%wZ\n", workingName));
+						}
+
+						KdPrint(("FileDisk: 绑定这10M空间\n"));
+						return STATUS_SUCCESS;
+					}
+				}
+			}
+			//return STATUS_SUCCESS;
+
 		}
+		//else
+		//{
+		//	return STATUS_FLT_DO_NOT_ATTACH;
+		//}
 
  	}
 	/************************************************************************/
@@ -608,8 +761,8 @@ _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
 		{
 			workingName = &volProp->RealDeviceName;
 
-			KdPrint(("FileDisk: MINI_FILTER realDeviceName: %wZ\n", workingName));
-
+//  			KdPrint(("FileDisk: MINI_FILTER realDeviceName: %wZ\n", workingName));
+			RtlZeroMemory(devicePath, 260);
 			if (FDUnicodeStringToChar(workingName, devicePath))
 			{
 				//说明是我们自己创建的设备
@@ -693,12 +846,12 @@ IN PVOID Context
 			NULL);
 
 		status = ZwCreateFile(&hUDisk,
-			GENERIC_READ,
+			GENERIC_READ | GENERIC_WRITE,
 			&uDiskOa,
 			&iostatus,
 			NULL,
 			FILE_ATTRIBUTE_NORMAL,
-			FILE_SHARE_READ,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
 			FILE_OPEN,
 			FILE_NON_DIRECTORY_FILE |
 			FILE_RANDOM_ACCESS |
@@ -766,6 +919,7 @@ IN PVOID Context
 
 	notification->fileDiskAuthority = 0;
 	notification->offset.QuadPart = 0;
+	notification->phyNo = hardDiskNo;
 	notification->storageSize.QuadPart = diskSize;
 	KdPrint(("FileDisk: 磁盘的大小为：%lld\n", diskSize));
 	RtlCopyMemory(notification->Contents, ((PREAD_UDISK_CONTEXT)Context)->deviceName, wcslen(((PREAD_UDISK_CONTEXT)Context)->deviceName));
@@ -792,5 +946,39 @@ IN PVOID Context
 	{
 		KdPrint(("FileDisk MiniFilter: 驱动层发送消息失败：%08x\n", status));
 	}
+
+}
+
+VOID
+CleanupVolumeContext(
+_In_ PFLT_CONTEXT Context,
+_In_ FLT_CONTEXT_TYPE ContextType
+)
+/*++
+
+Routine Description:
+
+The given context is being freed.
+Free the allocated name buffer if there one.
+
+Arguments:
+
+Context - The context being freed
+
+ContextType - The type of context this is
+
+Return Value:
+
+None
+
+--*/
+{
+	PVOLUME_CONTEXT ctx = Context;
+
+	PAGED_CODE();
+
+	UNREFERENCED_PARAMETER(ContextType);
+
+	FLT_ASSERT(ContextType == FLT_VOLUME_CONTEXT);
 
 }

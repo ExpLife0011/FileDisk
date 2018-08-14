@@ -25,6 +25,7 @@ typedef struct _FILEDISK_NOTIFICATION
 {
 	BYTE			isSpecial;					//是否是特定的U盘
 	ULONG			fileDiskAuthority;			//权限
+	ULONG			phyNo;						//物理磁盘号
 	LARGE_INTEGER	offset;						//U盘偏移
 	LARGE_INTEGER	storageSize;				//U盘大小
 	UCHAR			Contents[512];				//保留字段
@@ -516,6 +517,7 @@ HRESULT indicating the status of thread exit.
 
 // 		BOOL isSpecial = IsSpecialUDisk(driveLetter);
 		BOOL isSpecial = notification->isSpecial;
+		ULONG phyNo = notification->phyNo;
 
 		//打印调试信息
 		if (!isSpecial)
@@ -539,13 +541,13 @@ HRESULT indicating the status of thread exit.
 			char FileName[MAX_PATH] = { 0 };
 			DWORD PhyDriveNo = 0;
 			DRIVEINFO DriveInfo = {0};
-			GetPhysicalNum(driveLetter, &PhyDriveNo);
+//			GetPhysicalNum(driveLetter, &PhyDriveNo);
 
 			//获取磁盘相关信息
 // 			GetPhysicalDriveInfo(PhyDriveNo, &DriveInfo);
 			DriveInfo.DiskSize = notification->storageSize.QuadPart;
 
-			sprintf(FileName, "\\??\\physicaldrive%d", PhyDriveNo);
+			sprintf(FileName, "\\??\\physicaldrive%d", phyNo);
 			OpenFileInformation =
 				(POPEN_FILE_INFORMATION)malloc(sizeof(OPEN_FILE_INFORMATION) + strlen(FileName) + 7);
 

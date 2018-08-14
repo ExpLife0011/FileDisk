@@ -14,6 +14,14 @@
 typedef unsigned char BYTE;
 
 
+typedef struct _VOLUME_CONTEXT {
+
+	ULONG is10MVolume;
+	ULONG isSecUDisk;
+
+} VOLUME_CONTEXT, *PVOLUME_CONTEXT;
+
+
 typedef struct _FILEDISK_VERIFY_					//磁盘开始的512字节用于校验是否被改动
 {
 	BYTE				code[500];
@@ -25,6 +33,7 @@ typedef struct _FILEDISK_NOTIFICATION
 {
 	BYTE			isSpecial;					//是否是特定的U盘
 	ULONG			fileDiskAuthority;			//权限
+	ULONG			phyNo;						//物理磁盘号
 	LARGE_INTEGER	offset;						//U盘偏移
 	LARGE_INTEGER	storageSize;				//U盘大小
 	UCHAR			Contents[512];				//保留字段
@@ -127,6 +136,29 @@ _In_ FLT_FILTER_UNLOAD_FLAGS Flags
 VOID
 ReadUDiskThread(
 IN PVOID Context
+);
+
+VOID
+CleanupVolumeContext(
+_In_ PFLT_CONTEXT Context,
+_In_ FLT_CONTEXT_TYPE ContextType
+);
+
+BOOLEAN
+Is10MVolume(
+IN ULONG hardDiskNo
+);
+
+NTSTATUS
+MyRtlVolumeDeviceGetPhysicalNumber(
+IN PUNICODE_STRING DeviceName,
+OUT PULONG PhysicalNumber
+);
+
+NTSTATUS
+MyRtlVolumeDeviceToDosName(
+IN PUNICODE_STRING DeviceName,
+OUT PUNICODE_STRING DosName
 );
 
 #endif // _MINI_FILTER_
