@@ -9,6 +9,9 @@ extern PFLT_FILTER g_FilterHandle;					//过滤器句柄
 extern PFLT_PORT 	g_ServerPort;
 extern PFLT_PORT 	g_ClientPort;
 extern ULONG		g_filediskAuthority;			//权限
+extern ULONG		g_exceptProcessId;
+extern ULONG		g_formatting;
+
 
 #define BUFFER_SIZE 1024
 
@@ -96,10 +99,19 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreCreateCallback(
 
 	if (NT_SUCCESS(status))
 	{
-		KdPrint(("FileDisk: Create10M空间禁用\n"));
-		Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
-		Data->IoStatus.Information = 0;
-		return FLT_PREOP_COMPLETE;
+		KdPrint(("FileDisk: 10M空间操作进程ID：%d\n", (ULONG)PsGetCurrentProcessId()));
+		if (g_formatting)
+		{
+			KdPrint(("FileDisk: Create10M空间放过\n"));
+			return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+		}
+		else
+		{
+			KdPrint(("FileDisk: Create10M空间禁用\n"));
+			Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+			Data->IoStatus.Information = 0;
+			return FLT_PREOP_COMPLETE;
+		}
 	}
 
 

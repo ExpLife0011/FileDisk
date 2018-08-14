@@ -51,4 +51,15 @@ typedef struct _OPEN_FILE_INFORMATION {
     CHAR            FileName[1];
 } OPEN_FILE_INFORMATION, *POPEN_FILE_INFORMATION;
 
+typedef enum _NPMINI_COMMAND {
+	ENUM_AUTHORITY = 0,
+	ENUM_EXCEPTPROCESSID,
+	ENUM_FORMATTING
+} NPMINI_COMMAND;
+
+typedef struct _COMMAND_MESSAGE {
+	NPMINI_COMMAND 	Command;				//信息类别
+	ULONG			commandContext;			//信息内容
+} COMMAND_MESSAGE, *PCOMMAND_MESSAGE;
+
 #endif

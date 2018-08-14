@@ -647,6 +647,21 @@ HRESULT indicating the status of thread exit.
 	return hr;
 }
 
+extern "C" __declspec(dllexport)	int CommunicationPort(void)
+{
+	DWORD hResult = FilterConnectCommunicationPort(
+		NPMINI_PORT_NAME,
+		0,
+		NULL,
+		0,
+		NULL,
+		&g_hPort);
+
+	if (hResult != S_OK) {
+		return hResult;
+	}
+	return 0;
+}
 
 extern "C" __declspec(dllexport) int InitialCommunicationPort(void)
 {
@@ -687,19 +702,20 @@ extern "C" __declspec(dllexport) int InitialCommunicationPort(void)
 	return 0;
 }
 
-extern "C" __declspec(dllexport) int FDSendMessage(PVOID InputBuffer)
+extern "C" __declspec(dllexport) int FDSendMessage(NPMINI_COMMAND type, PVOID InputBuffer)
 {
 	DWORD bytesReturned = 0;
 	DWORD hResult = 0;
 	PDWORD commandMessage = (PDWORD)InputBuffer;
 
-	FILEDISK_REPLY filedisk_reply = {0};		//设置权限进去
-	filedisk_reply.fileDiskAuthority = *commandMessage;
+	COMMAND_MESSAGE filedisk_reply;		//设置权限进去
+	filedisk_reply.Command = type;
+	filedisk_reply.commandContext = *commandMessage;
 
 	hResult = FilterSendMessage(
 		g_hPort,
 		&filedisk_reply,
-		sizeof(FILEDISK_REPLY),
+		sizeof(COMMAND_MESSAGE),
 		NULL,
 		NULL,
 		&bytesReturned);
@@ -1011,7 +1027,7 @@ __declspec(dllexport)	BOOL MakeDisk(char DriveLetter)
 extern "C" __declspec(dllexport)	BOOL SetUDiskAuthority(DWORD Authority)
 {
 	g_Authority = Authority;
-	FDSendMessage(&g_Authority);
+	FDSendMessage(ENUM_AUTHORITY, &g_Authority);
 	return TRUE;
 }
 
@@ -1076,4 +1092,18 @@ __declspec(dllexport)  DWORD WINAPI AutoDiskMountThread(IN LPVOID pParam)
 
 
 	return 0;
+}
+
+
+extern "C" __declspec(dllexport)	BOOL SetExceptProcessId(DWORD processId)
+{
+	FDSendMessage(ENUM_EXCEPTPROCESSID, &processId);
+	return TRUE;
+}
+
+
+__declspec(dllexport)	BOOL SetFormatStatus(DWORD formatStatus)
+{
+	FDSendMessage(ENUM_FORMATTING, &formatStatus);
+	return TRUE;
 }

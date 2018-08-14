@@ -18,12 +18,14 @@
 #define NPMINI_PORT_NAME       L"\\NPMiniPort"
 
 typedef enum _NPMINI_COMMAND {
-	ENUM_PASS = 0,
-	ENUM_BLOCK
+	ENUM_AUTHORITY = 0,
+	ENUM_EXCEPTPROCESSID,
+	ENUM_FORMATTING
 } NPMINI_COMMAND;
 
 typedef struct _COMMAND_MESSAGE {
-	NPMINI_COMMAND 	Command;
+	NPMINI_COMMAND 	Command;				//信息类别
+	ULONG			commandContext;			//信息内容
 } COMMAND_MESSAGE, *PCOMMAND_MESSAGE;
 
 
@@ -32,7 +34,7 @@ extern "C" {
 #endif
 
 __declspec(dllexport)	int InitialCommunicationPort(void);
-__declspec(dllexport)   int FDSendMessage(PVOID InputBuffer);
+__declspec(dllexport)   int FDSendMessage(NPMINI_COMMAND type, PVOID InputBuffer);
 __declspec(dllexport)	int FileDiskMount(int DeviceNumber, POPEN_FILE_INFORMATION OpenFileInformation, BOOLEAN CdImage);
 __declspec(dllexport)	int FileDiskUmount(char DriveLetter);
 __declspec(dllexport)	BOOL IsSpecialUDisk(char driveLetter);
@@ -42,6 +44,10 @@ __declspec(dllexport)	BOOL MakeDisk(char DriveLetter);						//这个弃用
 __declspec(dllexport)	BOOL SetUDiskAuthority(DWORD Authority);				//设置介质的权限
 __declspec(dllexport)	BOOL GetUDiskAuthority(PDWORD Authority);				//获取介质的权限
 __declspec(dllexport)   DWORD WINAPI AutoDiskMountThread(IN LPVOID pParam);
+__declspec(dllexport)	BOOL SetExceptProcessId(DWORD processId);
+__declspec(dllexport)	int CommunicationPort(void);
+__declspec(dllexport)	BOOL SetFormatStatus(DWORD formatStatus);
+
 #ifdef __cplusplus
 }
 #endif

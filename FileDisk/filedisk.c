@@ -43,6 +43,8 @@ PFLT_FILTER g_FilterHandle;					//过滤器句柄
 PFLT_PORT 	g_ServerPort;
 PFLT_PORT 	g_ClientPort;
 ULONG		g_filediskAuthority = 0x00000002;			//权限
+ULONG		g_exceptProcessId = 0;
+ULONG		g_formatting = 0;
 
 BYTE        g_DefaultKey[ENCRYPTKEY_LEN];
 
@@ -504,10 +506,23 @@ __out PULONG ReturnOutputBufferLength
 {
 
 	if (InputBuffer != NULL &&
-		InputBufferSize >= sizeof(FILEDISK_REPLY))
+		InputBufferSize >= sizeof(COMMAND_MESSAGE))
 	{
-		g_filediskAuthority = ((PFILEDISK_REPLY)InputBuffer)->fileDiskAuthority;
-		KdPrint(("Filedisk MiniMessage:应用层传递过来的权限%d\n", g_filediskAuthority));
+		switch (((PCOMMAND_MESSAGE)InputBuffer)->Command)
+		{
+		case ENUM_AUTHORITY:
+			g_filediskAuthority = ((PCOMMAND_MESSAGE)InputBuffer)->commandContext;
+			KdPrint(("Filedisk MiniMessage:应用层传递过来的权限%d\n", g_filediskAuthority));
+		case ENUM_EXCEPTPROCESSID:
+			g_exceptProcessId = ((PCOMMAND_MESSAGE)InputBuffer)->commandContext;
+			KdPrint(("Filedisk MiniMessage:应用层传递过来的放过进程为%d\n", g_exceptProcessId));
+		case ENUM_FORMATTING:
+			g_formatting = ((PCOMMAND_MESSAGE)InputBuffer)->commandContext;
+			KdPrint(("Filedisk MiniMessage:应用层传递过来的是否在格式化%d\n", g_formatting));
+		default:
+			break;
+		}
+
 	}
 
 	NTSTATUS status = STATUS_SUCCESS;
