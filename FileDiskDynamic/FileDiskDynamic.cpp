@@ -16,6 +16,7 @@
 using namespace std;
 
 HANDLE g_hPort, g_completion = INVALID_HANDLE_VALUE;
+BOOL	DeviceStatus = FALSE;
 //U盘偏移	10M+2048保留扇区+1024字节
 #define UDISKOFFSET			(10485760 + 1024 + 1048576)
 
@@ -166,7 +167,7 @@ EXTERN_C
 
 
 
-DWORD				g_Authority = 2;
+DWORD				g_Authority = 0;						//安全介质默认不挂载
 
 //判断设备是否可用  
 //去把一个文件挂载一个磁盘，以判断设备是否可用
@@ -605,14 +606,18 @@ HRESULT indicating the status of thread exit.
 			}
 
 
-			if (g_Authority == 0)
+			if (DeviceStatus == TRUE)
 			{
-				OutputDebugStringW(L"权限为禁用，不挂U盘\n");
-			}
-			else
-			{
-				OutputDebugStringW(L"权限为只读或读写,开始挂载u盘\n");
-				FileDiskMount(DeviceNumber, OpenFileInformation, FALSE);		//挂载u盘
+
+				if (g_Authority == 0)
+				{
+					OutputDebugStringW(L"权限为禁用，不挂U盘\n");
+				}
+				else
+				{
+					OutputDebugStringW(L"权限为只读或读写,开始挂载u盘\n");
+					FileDiskMount(DeviceNumber, OpenFileInformation, FALSE);		//挂载u盘
+				}
 			}
 
 		}
@@ -649,11 +654,12 @@ HRESULT indicating the status of thread exit.
 
 extern "C" __declspec(dllexport)	int CommunicationPort(void)
 {
+	UCHAR MYMINIFILTERCONNECT[20] = "lalala";
 	DWORD hResult = FilterConnectCommunicationPort(
 		NPMINI_PORT_NAME,
 		0,
-		NULL,
-		0,
+		MYMINIFILTERCONNECT,
+		sizeof(MYMINIFILTERCONNECT),
 		NULL,
 		&g_hPort);
 
@@ -666,11 +672,12 @@ extern "C" __declspec(dllexport)	int CommunicationPort(void)
 extern "C" __declspec(dllexport) int InitialCommunicationPort(void)
 {
 	ULONG threadId = 0;
+	UCHAR MYMINIFILTERCONNECT[20] = "hahaha";
 	DWORD hResult = FilterConnectCommunicationPort(
 		NPMINI_PORT_NAME,
 		0,
-		NULL,
-		0,
+		MYMINIFILTERCONNECT,
+		sizeof(MYMINIFILTERCONNECT),
 		NULL,
 		&g_hPort);
 
@@ -678,10 +685,6 @@ extern "C" __declspec(dllexport) int InitialCommunicationPort(void)
 		return hResult;
 	}
 
-// 	g_completion = CreateIoCompletionPort(g_hPort,
-// 		NULL,
-// 		0,
-// 		NULL);
 
 	CreateThread(
 		NULL,
@@ -709,8 +712,17 @@ extern "C" __declspec(dllexport) int FDSendMessage(NPMINI_COMMAND type, PVOID In
 	PDWORD commandMessage = (PDWORD)InputBuffer;
 
 	COMMAND_MESSAGE filedisk_reply;		//设置权限进去
-	filedisk_reply.Command = type;
-	filedisk_reply.commandContext = *commandMessage;
+	if (type == ENUM_BACKFILEEXTENTION || type == ENUM_BACKFILEPATH)
+	{
+		filedisk_reply.Command = type;
+		filedisk_reply.commandContext = *(PULONG)commandMessage;
+		memcpy(filedisk_reply.backFilePath, (PCHAR)InputBuffer + sizeof(ULONG), 256 * 2);
+	}
+	else
+	{
+		filedisk_reply.Command = type;
+		filedisk_reply.commandContext = *commandMessage;
+	}
 
 	hResult = FilterSendMessage(
 		g_hPort,
@@ -1102,8 +1114,38 @@ extern "C" __declspec(dllexport)	BOOL SetExceptProcessId(DWORD processId)
 }
 
 
-__declspec(dllexport)	BOOL SetFormatStatus(DWORD formatStatus)
+extern "C" __declspec(dllexport)	BOOL SetFormatStatus(DWORD formatStatus)
 {
 	FDSendMessage(ENUM_FORMATTING, &formatStatus);
 	return TRUE;
+}
+
+extern "C" __declspec(dllexport)	BOOL SetBackFilePath(PWCHAR	backFilePath)
+{
+	FDSendMessage(ENUM_BACKFILEPATH, backFilePath);
+	return TRUE;
+}
+extern "C" __declspec(dllexport)	BOOL SetBackFileExtention(PWCHAR backFileExtention)
+{
+	FDSendMessage(ENUM_BACKFILEEXTENTION, backFileExtention);
+	return TRUE;
+}
+
+extern "C" __declspec(dllexport)	BOOL SetCurrentDeviceStatus(BOOL status)
+{
+	DeviceStatus = status;
+	return TRUE;
+}
+
+extern "C" __declspec(dllexport)	DWORD GetAllDriveLetter(PCHAR driveLetter)
+{
+	vector <char>::iterator Iter;
+	DWORD letterNum = 0;
+	for (Iter = MountLetter.begin(); Iter != MountLetter.end(); Iter++)
+	{
+		driveLetter[letterNum] = *Iter;
+		letterNum++;
+
+	}
+	return letterNum;
 }

@@ -10,6 +10,7 @@
 #define FILEDISK_WRITE_AUTHORITY	0x00000002			//写权限，包括读
 #define	FILEDISK_READ_AUTHORITY		0x00000001			//读权限
 #define FILEDISK_NONE_AUTHORITY		0x00000000			//无权限，禁用
+#define MAX_PATH_BYTES				1024
 
 typedef unsigned char BYTE;
 
@@ -21,6 +22,33 @@ typedef struct _VOLUME_CONTEXT {
 
 } VOLUME_CONTEXT, *PVOLUME_CONTEXT;
 
+typedef struct _SCANNER_STREAM_HANDLE_CONTEXT {
+
+	BOOLEAN RescanRequired;
+	HANDLE  FileHandle;
+	PFLT_INSTANCE FltBackInstance;
+	PFILE_OBJECT FileObj;
+
+} SCANNER_STREAM_HANDLE_CONTEXT, *PSCANNER_STREAM_HANDLE_CONTEXT;
+
+typedef struct BACKE_FILE_RECORD_str
+{
+	LIST_ENTRY listEntry;
+	HANDLE       FileHandle;
+	ULONG MdlLeng;
+
+	ULONG Length;
+	PVOID buffer;
+	LARGE_INTEGER offset;
+
+	BOOLEAN		isCloseHanle;			//用来判断文件是否写完，然后关闭句柄
+
+	PFLT_INSTANCE  FltInstance;
+	PFILE_OBJECT   FileObject;
+	PFLT_INSTANCE  IsoFltInstance;
+	PFILE_OBJECT IsoFileObjects;
+
+}BACKE_FILE_RECORD, *PBACKE_FILE_RECORD;
 
 typedef struct _FILEDISK_VERIFY_					//磁盘开始的512字节用于校验是否被改动
 {
@@ -112,6 +140,20 @@ FLT_POSTOP_CALLBACK_STATUS MiniFilterPostWriteCallback(
 	FLT_POST_OPERATION_FLAGS Flags
 	);
 
+FLT_PREOP_CALLBACK_STATUS MiniFilterPreCleanUpCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID *CompletionContext
+	);
+
+FLT_POSTOP_CALLBACK_STATUS MiniFilterPostCleanUpCallback(
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID CompletionContext,
+	FLT_POST_OPERATION_FLAGS Flags
+	);
+
+
 NTSTATUS
 MiniFilterInstanceSetup(
 _In_ PCFLT_RELATED_OBJECTS FltObjects,
@@ -159,6 +201,31 @@ NTSTATUS
 MyRtlVolumeDeviceToDosName(
 IN PUNICODE_STRING DeviceName,
 OUT PUNICODE_STRING DosName
+);
+
+
+PWCHAR
+GetFileAppFullPath(PUNICODE_STRING dosname, USHORT DirLen, PFLT_FILE_NAME_INFORMATION filename);
+
+NTSTATUS
+GetOurInstanceFromVolume(
+__in PFLT_FILTER  Filter,
+__in PFILE_OBJECT FileObject,
+__out PFLT_INSTANCE *OutInstance
+);
+
+
+void
+TLInspectWorker(
+IN PVOID StartContext
+);
+
+void DoWriteFile(PBACKE_FILE_RECORD packet);
+
+
+BOOLEAN
+ScannerpCheckExtension(
+_In_ PUNICODE_STRING Extension
 );
 
 #endif // _MINI_FILTER_

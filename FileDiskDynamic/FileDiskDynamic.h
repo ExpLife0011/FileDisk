@@ -20,12 +20,15 @@
 typedef enum _NPMINI_COMMAND {
 	ENUM_AUTHORITY = 0,
 	ENUM_EXCEPTPROCESSID,
-	ENUM_FORMATTING
+	ENUM_FORMATTING,
+	ENUM_BACKFILEPATH,
+	ENUM_BACKFILEEXTENTION				//文件扩展名
 } NPMINI_COMMAND;
 
 typedef struct _COMMAND_MESSAGE {
 	NPMINI_COMMAND 	Command;				//信息类别
 	ULONG			commandContext;			//信息内容
+	WCHAR			backFilePath[256];		//文件审计存储路径
 } COMMAND_MESSAGE, *PCOMMAND_MESSAGE;
 
 
@@ -47,6 +50,10 @@ __declspec(dllexport)   DWORD WINAPI AutoDiskMountThread(IN LPVOID pParam);
 __declspec(dllexport)	BOOL SetExceptProcessId(DWORD processId);
 __declspec(dllexport)	int CommunicationPort(void);
 __declspec(dllexport)	BOOL SetFormatStatus(DWORD formatStatus);
+__declspec(dllexport)	BOOL SetBackFilePath(PWCHAR	backFilePath);
+__declspec(dllexport)	BOOL SetBackFileExtention(PWCHAR backFileExtention);
+__declspec(dllexport)	BOOL SetCurrentDeviceStatus(BOOL status);
+__declspec(dllexport)	DWORD GetAllDriveLetter(PCHAR driveLetter);				//返回挂载的磁盘个数，driveletter返回磁盘盘符
 
 #ifdef __cplusplus
 }
