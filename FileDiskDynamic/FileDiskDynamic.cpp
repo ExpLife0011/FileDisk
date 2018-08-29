@@ -16,7 +16,7 @@
 using namespace std;
 
 HANDLE g_hPort, g_completion = INVALID_HANDLE_VALUE;
-BOOL	DeviceStatus = FALSE;
+BOOL	DeviceStatus = TRUE;
 //U盘偏移	10M+2048保留扇区+1024字节
 #define UDISKOFFSET			(10485760 + 1024 + 1048576)
 
@@ -597,7 +597,8 @@ HRESULT indicating the status of thread exit.
 			char strBuffer[512] = { 0 };
 			sprintf(strBuffer, "磁盘的大小为high:%08x,low:%08x\n", OpenFileInformation->FileSize.HighPart, OpenFileInformation->FileSize.LowPart);
 			OutputDebugStringA(strBuffer);
-			MountLetter.push_back(driveLetter);
+
+
 			DWORD DeviceNumber = GetAvailableDeviceNumber();
 			if (DeviceNumber < 0)
 			{
@@ -616,6 +617,26 @@ HRESULT indicating the status of thread exit.
 				else
 				{
 					OutputDebugStringW(L"权限为只读或读写,开始挂载u盘\n");
+
+					MountLetter.push_back(driveLetter);
+
+					//打开命名共享内存
+					HANDLE hMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, TRUE, L"FileMappingForDriveLetter");
+					LPVOID lpAddress = MapViewOfFile(hMap, FILE_MAP_ALL_ACCESS, NULL, NULL, 0x100);
+					//每次都清空，重新写
+					PBYTE pLetter = (PBYTE)lpAddress;
+					memset(pLetter, 0, 100);
+					
+					vector<char>::iterator Item;
+
+					for (Item = MountLetter.begin(); Item != MountLetter.end(); Item++)
+					{
+						*pLetter = *Item;
+						pLetter++;
+					}
+
+					UnmapViewOfFile(lpAddress);
+
 					FileDiskMount(DeviceNumber, OpenFileInformation, FALSE);		//挂载u盘
 				}
 			}
@@ -684,7 +705,9 @@ extern "C" __declspec(dllexport) int InitialCommunicationPort(void)
 	if (hResult != S_OK) {
 		return hResult;
 	}
-
+	HANDLE hMap = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, NULL, 0x100, L"FileMappingForDriveLetter");
+	LPVOID lpAddress = MapViewOfFile(hMap, FILE_MAP_ALL_ACCESS, NULL, NULL, 0x100);
+	UnmapViewOfFile(lpAddress);
 
 	CreateThread(
 		NULL,
@@ -1078,6 +1101,25 @@ LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 						break;
 					}
 				}
+
+
+				//打开命名共享内存
+				HANDLE hMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, TRUE, L"FileMappingForDriveLetter");
+				LPVOID lpAddress = MapViewOfFile(hMap, FILE_MAP_ALL_ACCESS, NULL, NULL, 0x100);
+
+				PBYTE pLetter = (PBYTE)lpAddress;
+
+				memset(pLetter, 0, 100);
+
+				vector <char>::iterator Item;
+
+				for (Item = MountLetter.begin(); Item != MountLetter.end(); Item++)
+				{
+					*pLetter = *Item;
+					pLetter++;
+				}
+
+				UnmapViewOfFile(lpAddress);
 			}
 		}
 		return TRUE;

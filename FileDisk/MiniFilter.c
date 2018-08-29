@@ -781,7 +781,7 @@ NTSTATUS QuerySymbolicLink(
 	InitializeObjectAttributes(
 		&oa,
 		SymbolicLinkName,
-		OBJ_CASE_INSENSITIVE,
+		OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
 		0,
 		0);
 
