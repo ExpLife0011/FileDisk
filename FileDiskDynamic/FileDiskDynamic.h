@@ -55,6 +55,8 @@ __declspec(dllexport)	BOOL SetBackFileExtention(PWCHAR backFileExtention);
 __declspec(dllexport)	BOOL SetCurrentDeviceStatus(BOOL status);
 __declspec(dllexport)	DWORD GetAllDriveLetter(PCHAR driveLetter);				//返回挂载的磁盘个数，driveletter返回磁盘盘符
 
+BOOL GetAvailableDriveLetter(char * DriverLetter);				//获取可用的盘符，用于挂载u盘
+
 #ifdef __cplusplus
 }
 #endif

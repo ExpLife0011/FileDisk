@@ -10,7 +10,7 @@ extern PFLT_PORT 	g_ServerPort;
 extern PFLT_PORT 	g_ClientPort;
 extern ULONG		g_filediskAuthority;			//权限
 extern ULONG		g_exceptProcessId;
-extern ULONG		g_formatting;
+extern ULONG		g_formatting;				//是否在格式化磁盘
 extern ULONG		g_fileAudit;				//文件审计
 extern LIST_ENTRY   gConnList;
 extern KSPIN_LOCK   gConnListLock;
@@ -1130,7 +1130,7 @@ NTSTATUS
 
 		MyRtlVolumeDeviceGetPhysicalNumber(workingName, &harddiskNo);
 
-		if (NT_SUCCESS(status))
+		if (NT_SUCCESS(status) && DosName.Buffer != NULL)   //有时DosName会为空，限制一下
 		{
 			KdPrint(("FileDisk: MINI_FILTER realDeviceName: %wZ\n", workingName));
 

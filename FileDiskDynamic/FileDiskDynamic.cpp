@@ -1191,3 +1191,24 @@ extern "C" __declspec(dllexport)	DWORD GetAllDriveLetter(PCHAR driveLetter)
 	}
 	return letterNum;
 }
+
+
+BOOL GetAvailableDriveLetter(char * DriverLetter)
+{
+	DWORD dwLen = GetLogicalDriveStringsA(0, NULL);//获取系统盘符字符串长度
+	char *pszDriver = new char[dwLen];//构建字符数组
+	GetLogicalDriveStringsA(dwLen, pszDriver);//获取系统盘符字符串
+	char* pDriver = pszDriver;
+	while (*pDriver != '\0')
+	{
+		pDriver += strlen(pDriver) + 1;//定位到下一个字符串，加1是为了跳过\0字符
+	}
+
+	char * letter = pDriver - 4;
+
+	*DriverLetter = *letter + 1;
+
+	delete[] pszDriver;
+
+	return TRUE;
+}
