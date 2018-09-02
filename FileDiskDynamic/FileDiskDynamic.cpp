@@ -12,6 +12,8 @@
 #include <stdio.h>
 
 #include <vector>
+#include <map>
+
 #include <Dbt.h>
 using namespace std;
 
@@ -20,7 +22,7 @@ BOOL	DeviceStatus = TRUE;
 //U盘偏移	10M+2048保留扇区+1024字节
 #define UDISKOFFSET			(10485760 + 1024 + 1048576)
 
-vector<char> MountLetter;
+map<char, char> MountLetter;
 
 typedef struct _FILEDISK_NOTIFICATION
 {
@@ -587,7 +589,12 @@ HRESULT indicating the status of thread exit.
 			OpenFileInformation->FileNameLength =
 				(USHORT)strlen(OpenFileInformation->FileName);
 
-			OpenFileInformation->DriveLetter = driveLetter+1;
+			char availableLetter = 0;
+			GetAvailableDriveLetter(&availableLetter);			//获取到可用的盘符并挂载
+
+			OpenFileInformation->DriveLetter = availableLetter;
+// 			OpenFileInformation->DriveLetter = driveLetter + 1;
+
 			OpenFileInformation->PhysicalDrive = TRUE;
 			OpenFileInformation->FileOffset.QuadPart = UDISKOFFSET;
 			OpenFileInformation->ReadOnly = FALSE;
@@ -618,7 +625,7 @@ HRESULT indicating the status of thread exit.
 				{
 					OutputDebugStringW(L"权限为只读或读写,开始挂载u盘\n");
 
-					MountLetter.push_back(driveLetter);
+					MountLetter[driveLetter] = availableLetter;
 
 					//打开命名共享内存
 					HANDLE hMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, TRUE, L"FileMappingForDriveLetter");
@@ -627,11 +634,11 @@ HRESULT indicating the status of thread exit.
 					PBYTE pLetter = (PBYTE)lpAddress;
 					memset(pLetter, 0, 100);
 					
-					vector<char>::iterator Item;
+					map<char, char>::iterator Item;
 
 					for (Item = MountLetter.begin(); Item != MountLetter.end(); Item++)
 					{
-						*pLetter = *Item;
+						*pLetter = Item->second;
 						pLetter++;
 					}
 
@@ -1090,13 +1097,13 @@ LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 				int l = (int)(log(double(p->dbcv_unitmask)) / log(double(2)));
 				driveLetter = 'A' + l;
 
-				vector <char>::iterator Iter;
+				map<char, char>::iterator Iter;
 
 				for (Iter = MountLetter.begin(); Iter != MountLetter.end(); Iter++)
 				{
-					if (driveLetter == *Iter)
+					if (driveLetter == Iter->first)
 					{
-						FileDiskUmount(driveLetter + 1);
+						FileDiskUmount(Iter->second);
 						MountLetter.erase(Iter);
 						break;
 					}
@@ -1111,11 +1118,11 @@ LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 
 				memset(pLetter, 0, 100);
 
-				vector <char>::iterator Item;
+				map<char, char>::iterator Item;
 
 				for (Item = MountLetter.begin(); Item != MountLetter.end(); Item++)
 				{
-					*pLetter = *Item;
+					*pLetter = Item->second;
 					pLetter++;
 				}
 
@@ -1181,11 +1188,11 @@ extern "C" __declspec(dllexport)	BOOL SetCurrentDeviceStatus(BOOL status)
 
 extern "C" __declspec(dllexport)	DWORD GetAllDriveLetter(PCHAR driveLetter)
 {
-	vector <char>::iterator Iter;
+	map<char, char>::iterator Iter;
 	DWORD letterNum = 0;
 	for (Iter = MountLetter.begin(); Iter != MountLetter.end(); Iter++)
 	{
-		driveLetter[letterNum] = *Iter;
+		driveLetter[letterNum] = Iter->second;
 		letterNum++;
 
 	}
