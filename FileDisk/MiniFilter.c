@@ -554,6 +554,13 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreReadCallback(
 	PVOID *CompletionContext
 	)
 {
+
+	if (g_formatting || (ULONG)PsGetCurrentProcessId() < 5) //0--4进程放过
+	{
+		KdPrint(("FileDisk: 注册中放过进程\n"));
+		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	}
+
 	//拥有读写权限
 	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
 	{
@@ -616,6 +623,13 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreWriteCallback(
 
 	PBACKE_FILE_RECORD back_file_record = NULL;
 	KLOCK_QUEUE_HANDLE connListLockHandle;
+
+
+	if (g_formatting || (ULONG)PsGetCurrentProcessId() < 5) //0--4进程放过
+	{
+		KdPrint(("FileDisk: 注册中放过进程\n"));
+		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	}
 
 	//拥有读写权限
 	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
