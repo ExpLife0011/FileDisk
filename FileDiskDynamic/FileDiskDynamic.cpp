@@ -499,6 +499,7 @@ HRESULT indicating the status of thread exit.
 
 	while (TRUE) {
 
+
 #pragma warning(pop)
 
 		hr = FilterGetMessage(g_hPort,
@@ -613,39 +614,45 @@ HRESULT indicating the status of thread exit.
 				return -1;
 			}
 
-
-			if (DeviceStatus == TRUE)
+			if (driveLetter >= 'A' && driveLetter <= 'Z')
 			{
-
-				if (g_Authority == 0)
+				if (DeviceStatus == TRUE)
 				{
-					OutputDebugStringW(L"权限为禁用，不挂U盘\n");
-				}
-				else
-				{
-					OutputDebugStringW(L"权限为只读或读写,开始挂载u盘\n");
 
-					MountLetter[driveLetter] = availableLetter;
-
-					//打开命名共享内存
-					HANDLE hMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, TRUE, L"FileMappingForDriveLetter");
-					LPVOID lpAddress = MapViewOfFile(hMap, FILE_MAP_ALL_ACCESS, NULL, NULL, 0x100);
-					//每次都清空，重新写
-					PBYTE pLetter = (PBYTE)lpAddress;
-					memset(pLetter, 0, 100);
-					
-					map<char, char>::iterator Item;
-
-					for (Item = MountLetter.begin(); Item != MountLetter.end(); Item++)
+					if (g_Authority == 0)
 					{
-						*pLetter = Item->second;
-						pLetter++;
+						OutputDebugStringW(L"权限为禁用，不挂U盘\n");
 					}
+					else
+					{
+						OutputDebugStringW(L"权限为只读或读写,开始挂载u盘\n");
 
-					UnmapViewOfFile(lpAddress);
+						MountLetter[driveLetter] = availableLetter;
 
-					FileDiskMount(DeviceNumber, OpenFileInformation, FALSE);		//挂载u盘
+						//打开命名共享内存
+						HANDLE hMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, TRUE, L"FileMappingForDriveLetter");
+						LPVOID lpAddress = MapViewOfFile(hMap, FILE_MAP_ALL_ACCESS, NULL, NULL, 0x100);
+						//每次都清空，重新写
+						PBYTE pLetter = (PBYTE)lpAddress;
+						memset(pLetter, 0, 100);
+
+						map<char, char>::iterator Item;
+
+						for (Item = MountLetter.begin(); Item != MountLetter.end(); Item++)
+						{
+							*pLetter = Item->second;
+							pLetter++;
+							char dbgBuf[MAX_PATH] = { 0 };
+							sprintf(dbgBuf, "chengheming: MountLetter key: %c, value :%c\n", Item->first, Item->second);
+							OutputDebugStringA(dbgBuf);
+						}
+
+						UnmapViewOfFile(lpAddress);
+
+						FileDiskMount(DeviceNumber, OpenFileInformation, FALSE);		//挂载u盘
+					}
 				}
+
 			}
 
 		}
