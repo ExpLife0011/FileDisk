@@ -27,6 +27,10 @@ extern PWCHAR		g_scannedExtensions;
 //
 NPAGED_LOOKASIDE_LIST  g_FileNamePool;       //file name pool
 
+
+NTKERNELAPI
+UCHAR * PsGetProcessImageFileName(__in PEPROCESS Process);
+
 /************************************************************************/
 /* unicodeString 转 char                                                */
 /************************************************************************/
@@ -124,6 +128,14 @@ PVOID *CompletionContext
 			Data->IoStatus.Information = 0;
 			return FLT_PREOP_COMPLETE;
 		}
+	}
+
+	if (memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "Format.exe", strlen("Format.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "DiskFormat.exe", strlen("DiskFormat.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "EstSipSrv.exe", strlen("EstSipSrv.exe")) == 0)
+	{
+		KdPrint(("FileDisk: 当前操作的进程为Format.exe，放过此进程\n"));
+		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 	}
 
 
@@ -561,6 +573,14 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreReadCallback(
 		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
 	}
 
+	if (memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "Format.exe", strlen("Format.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "DiskFormat.exe", strlen("DiskFormat.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "EstSipSrv.exe", strlen("EstSipSrv.exe")) == 0)
+	{
+		KdPrint(("FileDisk: 当前操作的进程为Format.exe，放过此进程\n"));
+		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
+	}
+
 	//拥有读写权限
 	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
 	{
@@ -629,6 +649,14 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreWriteCallback(
 	{
 		KdPrint(("FileDisk: 注册中放过进程\n"));
 		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	}
+
+	if (memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "Format.exe", strlen("Format.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "DiskFormat.exe", strlen("DiskFormat.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "EstSipSrv.exe", strlen("EstSipSrv.exe")) == 0)
+	{
+		KdPrint(("FileDisk: 当前操作的进程为Format.exe，放过此进程\n"));
+		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 	}
 
 	//拥有读写权限
