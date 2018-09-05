@@ -627,29 +627,46 @@ HRESULT indicating the status of thread exit.
 					{
 						OutputDebugStringW(L"FileDisk Application 权限为只读或读写,开始挂载u盘\n");
 
-						MountLetter[driveLetter] = availableLetter;
-
+						//由于在格式化过程中驱动会捕获到多次安全介质的插入动作，如果在共享内存中存在的话，不挂载
+						BOOL isExist = FALSE;
 						//打开命名共享内存
 						HANDLE hMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, TRUE, L"FileMappingForDriveLetter");
 						LPVOID lpAddress = MapViewOfFile(hMap, FILE_MAP_ALL_ACCESS, NULL, NULL, 0x100);
-						//每次都清空，重新写
 						PBYTE pLetter = (PBYTE)lpAddress;
-						memset(pLetter, 0, 100);
 
 						map<char, char>::iterator Item;
 
 						for (Item = MountLetter.begin(); Item != MountLetter.end(); Item++)
 						{
-							*pLetter = Item->second;
-							pLetter++;
-							char dbgBuf[MAX_PATH] = { 0 };
-							sprintf(dbgBuf, "FileDisk Application : MountLetter key: %c, value :%c\n", Item->first, Item->second);
-							OutputDebugStringA(dbgBuf);
+							if (Item->first == driveLetter)
+							{
+								isExist = TRUE;
+								break;
+							}
+						}
+
+
+						if (!isExist)
+						{
+							//只有在不存在的时候才加入到共享内存中
+							MountLetter[driveLetter] = availableLetter;
+							memset(pLetter, 0, 100);
+
+							map<char, char>::iterator ItemA;
+
+							for (ItemA = MountLetter.begin(); ItemA != MountLetter.end(); ItemA++)
+							{
+								*pLetter = ItemA->second;
+								pLetter++;
+								char dbgBuf[MAX_PATH] = { 0 };
+								sprintf(dbgBuf, "FileDisk Application : MountLetter key: %c, value :%c\n", ItemA->first, ItemA->second);
+								OutputDebugStringA(dbgBuf);
+							}
+							FileDiskMount(DeviceNumber, OpenFileInformation, FALSE);		//挂载u盘
+
 						}
 
 						UnmapViewOfFile(lpAddress);
-
-						FileDiskMount(DeviceNumber, OpenFileInformation, FALSE);		//挂载u盘
 					}
 				}
 
