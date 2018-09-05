@@ -108,6 +108,17 @@ PVOID *CompletionContext
 	NTSTATUS status;
 
 
+	KdPrint(("Filedisk: 当前操作的进程为：%s\n", PsGetProcessImageFileName(PsGetCurrentProcess())));
+
+	if (memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "Format.exe", strlen("Format.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "DiskFormat.exe", strlen("DiskFormat.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "EstSipSrv.exe", strlen("EstSipSrv.exe")) == 0)
+	{
+		KdPrint(("FileDisk: 当前操作的进程为Format.exe，放过此进程\n"));
+		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
+	}
+
+
 	status = FltGetVolumeContext(
 		FltObjects->Filter,
 		FltObjects->Volume,
@@ -128,14 +139,6 @@ PVOID *CompletionContext
 			Data->IoStatus.Information = 0;
 			return FLT_PREOP_COMPLETE;
 		}
-	}
-
-	if (memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "Format.exe", strlen("Format.exe")) == 0 ||
-		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "DiskFormat.exe", strlen("DiskFormat.exe")) == 0 ||
-		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "EstSipSrv.exe", strlen("EstSipSrv.exe")) == 0)
-	{
-		KdPrint(("FileDisk: 当前操作的进程为Format.exe，放过此进程\n"));
-		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 	}
 
 
@@ -567,11 +570,7 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreReadCallback(
 	)
 {
 
-	if (g_formatting || (ULONG)PsGetCurrentProcessId() < 5) //0--4进程放过
-	{
-		KdPrint(("FileDisk: 注册中放过进程\n"));
-		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
-	}
+	KdPrint(("Filedisk: 当前操作的进程为：%s\n", PsGetProcessImageFileName(PsGetCurrentProcess())));
 
 	if (memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "Format.exe", strlen("Format.exe")) == 0 ||
 		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "DiskFormat.exe", strlen("DiskFormat.exe")) == 0 ||
@@ -580,6 +579,13 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreReadCallback(
 		KdPrint(("FileDisk: 当前操作的进程为Format.exe，放过此进程\n"));
 		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 	}
+
+	if (g_formatting || (ULONG)PsGetCurrentProcessId() < 5) //0--4进程放过
+	{
+		KdPrint(("FileDisk: 注册中放过进程\n"));
+		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	}
+
 
 	//拥有读写权限
 	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
@@ -644,12 +650,7 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreWriteCallback(
 	PBACKE_FILE_RECORD back_file_record = NULL;
 	KLOCK_QUEUE_HANDLE connListLockHandle;
 
-
-	if (g_formatting || (ULONG)PsGetCurrentProcessId() < 5) //0--4进程放过
-	{
-		KdPrint(("FileDisk: 注册中放过进程\n"));
-		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
-	}
+	KdPrint(("Filedisk: 当前操作的进程为：%s\n", PsGetProcessImageFileName(PsGetCurrentProcess())));
 
 	if (memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "Format.exe", strlen("Format.exe")) == 0 ||
 		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "DiskFormat.exe", strlen("DiskFormat.exe")) == 0 ||
@@ -658,6 +659,13 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreWriteCallback(
 		KdPrint(("FileDisk: 当前操作的进程为Format.exe，放过此进程\n"));
 		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 	}
+
+	if (g_formatting || (ULONG)PsGetCurrentProcessId() < 5) //0--4进程放过
+	{
+		KdPrint(("FileDisk: 注册中放过进程\n"));
+		return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+	}
+
 
 	//拥有读写权限
 	if (FlagOn(g_filediskAuthority, FILEDISK_WRITE_AUTHORITY))
@@ -1323,6 +1331,8 @@ VOID
 
 	ULONG						hardDiskNo = 0;
 
+	DWORD						partitionSectors = 0;
+
 	RtlInitUnicodeString(&DeviceName, ((PREAD_UDISK_CONTEXT)Context)->deviceName);
 	hardDiskNo = ((PREAD_UDISK_CONTEXT)Context)->hardDiskNo;
 
@@ -1398,15 +1408,33 @@ VOID
 		diskSize = *(ULONGLONG *)&fileDiskVerify->diskSize;
 		verifyCode = crc32(fileDiskVerify->code, 508);
 
-		if (verifyCode == fileDiskVerify->verifyCode)
+		//再判断一下分区表
+		fileOffset.QuadPart = 0;
+		status = ZwReadFile(
+			hUDisk,
+			NULL,
+			NULL,
+			NULL,
+			&iostatus,
+			buffer,
+			512,
+			&fileOffset,
+			NULL);
+
+		partitionSectors = *(DWORD *)&buffer[0x1CA];
+
+		//如果数据核验正确，并且分区也是10M，说明是安全介质
+		if (verifyCode == fileDiskVerify->verifyCode && partitionSectors == 0x5000)
 		{
 			notification->isSpecial = 1;
 			KdPrint(("Filedisk 插入的为特定的U盘\n"));
+			ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
 		}
 		else
 		{
 			notification->isSpecial = 0;
 			KdPrint(("FileDisk 插入的为普通的U盘\n"));
+			ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
 		}
 
 	}

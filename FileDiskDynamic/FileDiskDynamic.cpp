@@ -302,7 +302,7 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 
 	if (hEnDisk == INVALID_HANDLE_VALUE)
 	{
-		sprintf(strBuffer, "QueryDeviceStatus CreateFile Error, errCode: %d\n", GetLastError());
+		sprintf(strBuffer, "FileDisk Application QueryDeviceStatus CreateFile Error, errCode: %d\n", GetLastError());
 		OutputDebugStringA(strBuffer);
 		return FALSE;
 	}
@@ -320,7 +320,7 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 		NULL
 		))
 	{
-		sprintf(strBuffer, "QueryDeviceStatus DeviceIoControl IOCTL_FILE_DISK_OPEN_FILE Error, errCode: %d\n", GetLastError());
+		sprintf(strBuffer, "FileDisk Application QueryDeviceStatus DeviceIoControl IOCTL_FILE_DISK_OPEN_FILE Error, errCode: %d\n", GetLastError());
 		OutputDebugStringA(strBuffer);
 		CloseHandle(hEnDisk);
 		return FALSE;
@@ -356,7 +356,7 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 		))
 	{
 		CloseHandle(hEnDisk);
-		sprintf(strBuffer, "QueryDeviceStatus DeviceIoControl IOCTL_FILE_DISK_CLOSE_FILE error, errcode: %d\n", GetLastError());
+		sprintf(strBuffer, "FileDisk Application QueryDeviceStatus DeviceIoControl IOCTL_FILE_DISK_CLOSE_FILE error, errcode: %d\n", GetLastError());
 		OutputDebugStringA(strBuffer);
 		return FALSE;
 	}
@@ -407,7 +407,7 @@ BOOL IsSpecialUDisk(char driveLetter)
 		NULL);
 	if (hDrive == INVALID_HANDLE_VALUE)
 	{
-		OutputDebugStringW(L"IsSpecialUDisk CreateFile error\n");
+		OutputDebugStringW(L"FileDisk Application FileDisk Application IsSpecialUDisk CreateFile error\n");
 		return FALSE;
 	}
 
@@ -509,7 +509,7 @@ HRESULT indicating the status of thread exit.
 
 		if (!SUCCEEDED(hr)) {
 
-			OutputDebugStringA("FilterGetMessage Error\n");
+			OutputDebugStringA("FileDisk Application FilterGetMessage Error\n");
 
 		}
 
@@ -526,7 +526,7 @@ HRESULT indicating the status of thread exit.
 		//打印调试信息
 		if (!isSpecial)
 		{
-			OutputDebugStringW(L"这不是一个制作的u盘\n");
+			OutputDebugStringW(L"FileDisk Application 这不是一个制作的u盘\n");
 		}
 		
 		replyMessage.ReplyHeader.Status = 0;
@@ -535,7 +535,7 @@ HRESULT indicating the status of thread exit.
 		//将专用介质的权限给驱动
 		replyMessage.Reply.fileDiskAuthority = g_Authority/*这里*/;
 
-		printf("Replying message, fileDiskAuthority: %d\n", replyMessage.Reply.fileDiskAuthority);
+		printf("FileDisk Application Replying message, fileDiskAuthority: %d\n", replyMessage.Reply.fileDiskAuthority);
 
 		if (isSpecial)
 		{
@@ -603,14 +603,14 @@ HRESULT indicating the status of thread exit.
 			OpenFileInformation->FileSize.QuadPart = DriveInfo.DiskSize - UDISKOFFSET;
 
 			char strBuffer[512] = { 0 };
-			sprintf(strBuffer, "磁盘的大小为high:%08x,low:%08x\n", OpenFileInformation->FileSize.HighPart, OpenFileInformation->FileSize.LowPart);
+			sprintf(strBuffer, "FileDisk Application 磁盘的大小为high:%08x,low:%08x\n", OpenFileInformation->FileSize.HighPart, OpenFileInformation->FileSize.LowPart);
 			OutputDebugStringA(strBuffer);
 
 
 			DWORD DeviceNumber = GetAvailableDeviceNumber();
 			if (DeviceNumber < 0)
 			{
-				OutputDebugStringW(L"获取不到可用的设备号\n");
+				OutputDebugStringW(L"FileDisk Application 获取不到可用的设备号\n");
 				return -1;
 			}
 
@@ -621,11 +621,11 @@ HRESULT indicating the status of thread exit.
 
 					if (g_Authority == 0)
 					{
-						OutputDebugStringW(L"权限为禁用，不挂U盘\n");
+						OutputDebugStringW(L"FileDisk Application 权限为禁用，不挂U盘\n");
 					}
 					else
 					{
-						OutputDebugStringW(L"权限为只读或读写,开始挂载u盘\n");
+						OutputDebugStringW(L"FileDisk Application 权限为只读或读写,开始挂载u盘\n");
 
 						MountLetter[driveLetter] = availableLetter;
 
@@ -643,7 +643,7 @@ HRESULT indicating the status of thread exit.
 							*pLetter = Item->second;
 							pLetter++;
 							char dbgBuf[MAX_PATH] = { 0 };
-							sprintf(dbgBuf, "chengheming: MountLetter key: %c, value :%c\n", Item->first, Item->second);
+							sprintf(dbgBuf, "FileDisk Application : MountLetter key: %c, value :%c\n", Item->first, Item->second);
 							OutputDebugStringA(dbgBuf);
 						}
 
@@ -660,8 +660,8 @@ HRESULT indicating the status of thread exit.
 		if (SUCCEEDED(hr)) 
 		{
 
-			printf("Replied message\n");
-			OutputDebugStringA("Replied message\n");
+			printf("FileDisk Application Replied message\n");
+			OutputDebugStringA("FileDisk Application Replied message\n");
 
 			//由于上面的没有把权限传递进去，现在马上传一个权限进去
 			FilterSendMessage(g_hPort,
@@ -675,7 +675,7 @@ HRESULT indicating the status of thread exit.
 		else 
 		{
 
-			sprintf(outbuffer, "Scanner: Error replying message. Error = 0x%X\n", hr);
+			sprintf(outbuffer, "FileDisk Application Scanner: Error replying message. Error = 0x%X\n", hr);
 			OutputDebugStringA(outbuffer);
 		}
 
@@ -805,7 +805,7 @@ BOOLEAN CdImage)
 	if (Device != INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(Device);
-		sprintf(strBuffer, "FileDiskMount CreateFile Error, errCode: %d\n", GetLastError());
+		sprintf(strBuffer, "FileDisk Application FileDiskMount CreateFile Error, errCode: %d\n", GetLastError());
 		OutputDebugStringA(strBuffer);
 		return -1;
 	}
@@ -825,7 +825,7 @@ BOOLEAN CdImage)
 		DeviceName
 		))
 	{
-		sprintf(strBuffer, "FileDiskMount DefineDosDeviceA Error, errCode: %d\n", GetLastError());
+		sprintf(strBuffer, "FileDisk Application FileDiskMount DefineDosDeviceA Error, errCode: %d\n", GetLastError());
 		OutputDebugStringA(strBuffer);
 		return -1;
 	}
@@ -843,14 +843,14 @@ BOOLEAN CdImage)
 	if (Device == INVALID_HANDLE_VALUE)
 	{
 		DefineDosDeviceA(DDD_REMOVE_DEFINITION, &VolumeName[4], NULL);
-		sprintf(strBuffer, "FileDiskMount CreateFileA1 Error, errCode: %d\n", GetLastError());
+		sprintf(strBuffer, "FileDisk Application FileDiskMount CreateFileA1 Error, errCode: %d\n", GetLastError());
 		OutputDebugStringA(strBuffer);
 		return -1;
 	}
 
 	ioInputSize = sizeof(OPEN_FILE_INFORMATION) + OpenFileInformation->FileNameLength - 1;
 
-	sprintf(strBuffer, "FileDisk ioInputSize:%d\n", ioInputSize);
+	sprintf(strBuffer, "FileDisk Application FileDisk ioInputSize:%d\n", ioInputSize);
 	OutputDebugStringA(strBuffer);
 
 	if (!DeviceIoControl(
@@ -866,7 +866,7 @@ BOOLEAN CdImage)
 	{
 		DefineDosDeviceA(DDD_REMOVE_DEFINITION, &VolumeName[4], NULL);
 		CloseHandle(Device);
-		sprintf(strBuffer, "FileDiskMount DeviceIoControl IOCTL_FILE_DISK_OPEN_FILE Error, errCode: %d\n", GetLastError());
+		sprintf(strBuffer, "FileDisk Application FileDiskMount DeviceIoControl IOCTL_FILE_DISK_OPEN_FILE Error, errCode: %d\n", GetLastError());
 		OutputDebugStringA(strBuffer);
 		return -1;
 	}
@@ -1016,7 +1016,7 @@ __declspec(dllexport)	BOOL MakeDisk(char DriveLetter)
 	BOOL ret = GetPhysicalNum(DriveLetter, &phyNum);
 	if (!ret)
 	{
-		OutputDebugStringW(L"获取物理磁盘号失败！\n");
+		OutputDebugStringW(L"FileDisk Application 获取物理磁盘号失败！\n");
 		return FALSE;
 	}
 	DRIVEINFO driveInfo = { 0 };
