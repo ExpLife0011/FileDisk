@@ -370,7 +370,7 @@ BOOL QueryDeviceStatus(DWORD DeviceNumber)
 //获得一个可用的设备号
 DWORD GetAvailableDeviceNumber()
 {
-	DWORD deviceCount = 4;		//默认4个
+	DWORD deviceCount = 10;		//默认10个
 	for (int i = 0; i < deviceCount; i++)
 	{
 		if (QueryDeviceStatus(i))
