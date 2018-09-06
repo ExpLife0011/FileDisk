@@ -271,7 +271,11 @@ CreateFileDir(PWCHAR pwFileName, BOOLEAN bDirectory)
 	}
 	__finally
 	{
-		ExFreePoolWithTag(pwNameBuf, FILE_DISK_POOL_TAG);
+		if (pwNameBuf != NULL)
+		{
+			ExFreePoolWithTag(pwNameBuf, FILE_DISK_POOL_TAG);
+			pwNameBuf = NULL;
+		}
 		/*ExFreeToPagedLookasideList(&g_PagedFileName, pwNameBuf);*/
 	}
 	if (FileHandle != NULL)
@@ -341,8 +345,11 @@ NTSTATUS CreateDirectory(IN PWCHAR pwFileName)
 		}
 	}
 	__finally{
-
-		ExFreePoolWithTag(pwDir, FILE_DISK_POOL_TAG);
+		if (pwDir != NULL)
+		{
+			ExFreePoolWithTag(pwDir, FILE_DISK_POOL_TAG);
+			pwDir = NULL;
+		}
 		/*ExFreeToPagedLookasideList(&g_PagedFileName, pwDir);*/
 	}
 	return STATUS_SUCCESS;
@@ -857,7 +864,11 @@ NTSTATUS QuerySymbolicLink(
 
 	if (!NT_SUCCESS(status))
 	{
-		ExFreePool(LinkTarget->Buffer);
+		if (LinkTarget->Buffer != NULL)
+		{
+			ExFreePool(LinkTarget->Buffer);
+			LinkTarget->Buffer = NULL;
+		}
 	}
 
 	return status;
@@ -916,11 +927,19 @@ NTSTATUS
 
 		if (RtlEqualUnicodeString(&linkTarget, DeviceName, TRUE))
 		{
-			ExFreePool(linkTarget.Buffer);
+			if (linkTarget.Buffer != NULL)
+			{
+				ExFreePool(linkTarget.Buffer);
+				linkTarget.Buffer = NULL;
+			}
 			break;
 		}
 
-		ExFreePool(linkTarget.Buffer);
+		if (linkTarget.Buffer != NULL)
+		{
+			ExFreePool(linkTarget.Buffer);
+			linkTarget.Buffer = NULL;
+		}
 	}
 
 	if (c <= L'Z')
@@ -993,11 +1012,19 @@ NTSTATUS
 			if (RtlEqualUnicodeString(&linkTarget, DeviceName, TRUE))
 			{
 				isFind = TRUE;
-				ExFreePool(linkTarget.Buffer);
+				if (linkTarget.Buffer != NULL)
+				{
+					ExFreePool(linkTarget.Buffer);
+					linkTarget.Buffer = NULL;
+				}
 				KdPrint(("FileDisk: 该磁盘的物理号为：%d\n", harddiskNo));
 				break;
 			}
-			ExFreePool(linkTarget.Buffer);
+			if (linkTarget.Buffer != NULL)
+			{
+				ExFreePool(linkTarget.Buffer);
+				linkTarget.Buffer = NULL;
+			}
 		}
 
 		if (isFind)
@@ -1192,7 +1219,11 @@ NTSTATUS
 			RtlCopyMemory(context->deviceName, DosName.Buffer, 2 * wcslen(DosName.Buffer));
 			context->hardDiskNo = harddiskNo;
 
-			ExFreePoolWithTag(DosName.Buffer, FILE_DISK_POOL_TAG);
+			if (DosName.Buffer != NULL)
+			{
+				ExFreePoolWithTag(DosName.Buffer, FILE_DISK_POOL_TAG);
+				DosName.Buffer = NULL;
+			}
 
 
 			//创建线程用于读取磁盘并发送消息
@@ -1395,13 +1426,20 @@ VOID
 		if (!NT_SUCCESS(status))
 		{
 			KdPrint(("FileDisk ReadUdiskThread readfile error, errCode:%08x\n", status));
-			ExFreePoolWithTag(((PREAD_UDISK_CONTEXT)Context)->deviceName, FILE_DISK_POOL_TAG);
-			ExFreePoolWithTag(Context, FILE_DISK_POOL_TAG);
+			if (((PREAD_UDISK_CONTEXT)Context)->deviceName != NULL)
+			{
+				ExFreePoolWithTag(((PREAD_UDISK_CONTEXT)Context)->deviceName, FILE_DISK_POOL_TAG);
+				((PREAD_UDISK_CONTEXT)Context)->deviceName = NULL;
+			}
+			if (Context != NULL)
+			{
+				ExFreePoolWithTag(Context, FILE_DISK_POOL_TAG);
+				Context = NULL;
+			}
 			ZwClose(hUDisk);
 			return;
 		}
 		ZwClose(hUDisk);
-
 		//校验结构体的数据是否改变过  crc
 
 		fileDiskVerify = (PFILEDISK_VERIFY)buffer;
@@ -1409,32 +1447,42 @@ VOID
 		verifyCode = crc32(fileDiskVerify->code, 508);
 
 		//再判断一下分区表
-		fileOffset.QuadPart = 0;
-		status = ZwReadFile(
-			hUDisk,
-			NULL,
-			NULL,
-			NULL,
-			&iostatus,
-			buffer,
-			512,
-			&fileOffset,
-			NULL);
+// 		fileOffset.QuadPart = 0;
+// 		status = ZwReadFile(
+// 			hUDisk,
+// 			NULL,
+// 			NULL,
+// 			NULL,
+// 			&iostatus,
+// 			buffer,
+// 			512,
+// 			&fileOffset,
+// 			NULL);
+// 
+// 		partitionSectors = *(DWORD *)&buffer[0x1CA];
 
-		partitionSectors = *(DWORD *)&buffer[0x1CA];
+
 
 		//如果数据核验正确，并且分区也是10M，说明是安全介质
-		if (verifyCode == fileDiskVerify->verifyCode && partitionSectors == 0x5000)
+		if (verifyCode == fileDiskVerify->verifyCode && /*partitionSectors == 0x5000*/ Is10MVolume(hardDiskNo) )
 		{
 			notification->isSpecial = 1;
 			KdPrint(("Filedisk 插入的为特定的U盘\n"));
-			ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+			if (buffer != NULL)
+			{
+				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+				buffer = NULL;
+			}
 		}
 		else
 		{
 			notification->isSpecial = 0;
 			KdPrint(("FileDisk 插入的为普通的U盘\n"));
-			ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+			if (buffer != NULL)
+			{
+				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+				buffer = NULL;
+			}
 		}
 
 	}
@@ -1452,8 +1500,16 @@ VOID
 	KdPrint(("FileDisk: 磁盘的大小为：%lld\n", diskSize));
 	RtlCopyMemory(notification->Contents, ((PREAD_UDISK_CONTEXT)Context)->deviceName, wcslen(((PREAD_UDISK_CONTEXT)Context)->deviceName));
 
-	ExFreePoolWithTag(((PREAD_UDISK_CONTEXT)Context)->deviceName, FILE_DISK_POOL_TAG);
-	ExFreePoolWithTag(Context, FILE_DISK_POOL_TAG);
+	if (((PREAD_UDISK_CONTEXT)Context)->deviceName != NULL)
+	{
+		ExFreePoolWithTag(((PREAD_UDISK_CONTEXT)Context)->deviceName, FILE_DISK_POOL_TAG);
+		((PREAD_UDISK_CONTEXT)Context)->deviceName = NULL;
+	}
+	if (Context != NULL)
+	{
+		ExFreePoolWithTag(Context, FILE_DISK_POOL_TAG);
+		Context = NULL;
+	}
 
 	status = FltSendMessage(g_FilterHandle,
 		&g_ClientPort,

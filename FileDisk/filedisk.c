@@ -382,7 +382,7 @@ ZwAdjustPrivilegesToken (
 
 #define NUMBEROFDEVICES_VALUE   L"NumberOfDevices"
 
-#define DEFAULT_NUMBEROFDEVICES 4
+#define DEFAULT_NUMBEROFDEVICES 10
 
 #define TOC_DATA_TRACK          0x04
 
@@ -761,14 +761,23 @@ DriverEntry (
         NULL,
         NULL
         );
-
-    ExFreePool(parameter_path.Buffer);
+	
+	if (parameter_path.Buffer != NULL)
+	{
+		ExFreePool(parameter_path.Buffer);
+		parameter_path.Buffer = NULL;
+	}
 
     if (!NT_SUCCESS(status))
     {
         DbgPrint("FileDisk: Query registry failed, using default values.\n");
         n_devices = DEFAULT_NUMBEROFDEVICES;
     }
+
+	if (n_devices < DEFAULT_NUMBEROFDEVICES)
+	{
+		n_devices = DEFAULT_NUMBEROFDEVICES;
+	}
 
     RtlInitUnicodeString(&device_dir_name, DEVICE_DIR_NAME);
 
@@ -895,7 +904,11 @@ FileDiskCreateDevice (
 
     if (!NT_SUCCESS(status))
     {
-        ExFreePool(device_name.Buffer);
+		if (device_name.Buffer != NULL)
+		{
+			ExFreePool(device_name.Buffer);
+			device_name.Buffer = NULL;
+		}
         return status;
     }
 
@@ -942,7 +955,11 @@ FileDiskCreateDevice (
     if (!NT_SUCCESS(status))
     {
         IoDeleteDevice(device_object);
-        ExFreePool(device_name.Buffer);
+		if (device_name.Buffer != NULL)
+		{
+			ExFreePool(device_name.Buffer);
+			device_name.Buffer = NULL;
+		}
         return status;
     }
 
@@ -969,8 +986,11 @@ FileDiskCreateDevice (
 
         IoDeleteDevice(device_object);
 
-        ExFreePool(device_name.Buffer);
-
+		if (device_name.Buffer != NULL)
+		{
+			ExFreePool(device_name.Buffer);
+			device_name.Buffer = NULL;
+		}
         return status;
     }
 
@@ -1044,13 +1064,21 @@ FileDiskDeleteDevice (
 
     if (device_extension->device_name.Buffer != NULL)
     {
-        ExFreePool(device_extension->device_name.Buffer);
+		if (device_extension->device_name.Buffer != NULL)
+		{
+			ExFreePool(device_extension->device_name.Buffer);
+			device_extension->device_name.Buffer = NULL;
+		}
     }
 
     if (device_extension->security_client_context != NULL)
     {
         SeDeleteClientSecurity(device_extension->security_client_context);
-        ExFreePool(device_extension->security_client_context);
+		if (device_extension->security_client_context != NULL)
+		{
+			ExFreePool(device_extension->security_client_context);
+			device_extension->security_client_context = NULL;
+		}
     }
 
 #pragma prefast( suppress: 28175, "allowed in unload" )
@@ -1910,8 +1938,17 @@ FileDiskThread (
 					ENCRYPTKEY_LEN);
 
 				RtlCopyMemory(system_buffer, buffer, io_stack->Parameters.Read.Length);
-				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
-				ExFreePoolWithTag(decryptBuffer, FILE_DISK_POOL_TAG);
+
+				if (buffer != NULL)
+				{
+					ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+					buffer = NULL;
+				}
+				if (decryptBuffer != NULL)
+				{
+					ExFreePoolWithTag(decryptBuffer, FILE_DISK_POOL_TAG);
+					decryptBuffer = NULL;
+				}
 #else
 				RtlCopyMemory(system_buffer, buffer, io_stack->Parameters.Read.Length);
 				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
@@ -1986,8 +2023,18 @@ FileDiskThread (
 					&fileOffset,
 					NULL
 					);
-				ExFreePoolWithTag(encryptBuffer, FILE_DISK_POOL_TAG);
-				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+
+				if (encryptBuffer != NULL)
+				{
+					ExFreePoolWithTag(encryptBuffer, FILE_DISK_POOL_TAG);
+					encryptBuffer = NULL;
+				}
+				if (buffer != NULL)
+				{
+					ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+					buffer = NULL;
+				}
+
 #else
 				status = ZwWriteFile(
 					device_extension->file_handle,
@@ -2097,7 +2144,11 @@ FileDiskOpenFile (
 
     if (!NT_SUCCESS(status))
     {
-        ExFreePool(device_extension->file_name.Buffer);
+		if (device_extension->file_name.Buffer != NULL)
+		{
+			ExFreePool(device_extension->file_name.Buffer);
+			device_extension->file_name.Buffer = NULL;
+		}
         Irp->IoStatus.Status = status;
         Irp->IoStatus.Information = 0;
         return status;
@@ -2141,7 +2192,11 @@ FileDiskOpenFile (
         if (device_extension->read_only || open_file_information->FileSize.QuadPart == 0)
         {
             DbgPrint("FileDisk: File %.*S not found.\n", ufile_name.Length / 2, ufile_name.Buffer);
-            ExFreePool(device_extension->file_name.Buffer);
+			if (device_extension->file_name.Buffer != NULL)
+			{
+				ExFreePool(device_extension->file_name.Buffer);
+				device_extension->file_name.Buffer = NULL;
+			}
             RtlFreeUnicodeString(&ufile_name);
 
             Irp->IoStatus.Status = STATUS_NO_SUCH_FILE;
@@ -2172,7 +2227,11 @@ FileDiskOpenFile (
             if (!NT_SUCCESS(status))
             {
                 DbgPrint("FileDisk: File %.*S could not be created.\n", ufile_name.Length / 2, ufile_name.Buffer);
-                ExFreePool(device_extension->file_name.Buffer);
+				if (device_extension->file_name.Buffer != NULL)
+				{
+					ExFreePool(device_extension->file_name.Buffer);
+					device_extension->file_name.Buffer = NULL;
+				}
                 RtlFreeUnicodeString(&ufile_name);
                 return status;
             }
@@ -2211,7 +2270,11 @@ FileDiskOpenFile (
                 if (!NT_SUCCESS(status))
                 {
                     DbgPrint("FileDisk: eof could not be set.\n");
-                    ExFreePool(device_extension->file_name.Buffer);
+					if (device_extension->file_name.Buffer != NULL)
+					{
+						ExFreePool(device_extension->file_name.Buffer);
+						device_extension->file_name.Buffer = NULL;
+					}
                     RtlFreeUnicodeString(&ufile_name);
                     ZwClose(device_extension->file_handle);
                     return status;
@@ -2223,7 +2286,11 @@ FileDiskOpenFile (
     else if (!NT_SUCCESS(status))
     {
         DbgPrint("FileDisk: File %.*S could not be opened.\n", ufile_name.Length / 2, ufile_name.Buffer);
-        ExFreePool(device_extension->file_name.Buffer);
+		if (device_extension->file_name.Buffer != NULL)
+		{
+			ExFreePool(device_extension->file_name.Buffer);
+			device_extension->file_name.Buffer = NULL;
+		}
         RtlFreeUnicodeString(&ufile_name);
         return status;
     }
@@ -2246,7 +2313,11 @@ FileDiskOpenFile (
 
 		if (!NT_SUCCESS(status))
 		{
-			ExFreePool(device_extension->file_name.Buffer);
+			if (device_extension->file_name.Buffer != NULL)
+			{
+				ExFreePool(device_extension->file_name.Buffer);
+				device_extension->file_name.Buffer = NULL;
+			}
 			ZwClose(device_extension->file_handle);
 			return status;
 		}
@@ -2284,7 +2355,11 @@ FileDiskOpenFile (
 
 		if (!NT_SUCCESS(status))
 		{
-			ExFreePool(device_extension->file_name.Buffer);
+			if (device_extension->file_name.Buffer != NULL)
+			{
+				ExFreePool(device_extension->file_name.Buffer);
+				device_extension->file_name.Buffer = NULL;
+			}
 			ZwClose(device_extension->file_handle);
 			return status;
 		}
@@ -2313,7 +2388,11 @@ FileDiskOpenFile (
 
     if (!NT_SUCCESS(status))
     {
-        ExFreePool(device_extension->file_name.Buffer);
+		if (device_extension->file_name.Buffer != NULL)
+		{
+			ExFreePool(device_extension->file_name.Buffer);
+			device_extension->file_name.Buffer = NULL;
+		}
         ZwClose(device_extension->file_handle);
         return status;
     }
@@ -2352,7 +2431,11 @@ FileDiskCloseFile (
 
     device_extension = (PDEVICE_EXTENSION) DeviceObject->DeviceExtension;
 
-    ExFreePool(device_extension->file_name.Buffer);
+	if (device_extension->file_name.Buffer != NULL)
+	{
+		ExFreePool(device_extension->file_name.Buffer);
+		device_extension->file_name.Buffer = NULL;
+	}
 
     ZwClose(device_extension->file_handle);
 
