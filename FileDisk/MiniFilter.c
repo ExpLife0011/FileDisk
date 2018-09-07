@@ -742,16 +742,16 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreWriteCallback(
 					//是否需要关闭文件句柄
 					back_file_record->isCloseHanle = FALSE;
 
+					KeAcquireInStackQueuedSpinLock(
+						&gConnListLock,
+						&connListLockHandle
+						);
+					InsertTailList(&gConnList, &back_file_record->listEntry);
+					KeReleaseInStackQueuedSpinLock(&connListLockHandle);
+
+					KeSetEvent(&gWorkerEvent, IO_NO_INCREMENT, FALSE);
+
 				}
-
-				KeAcquireInStackQueuedSpinLock(
-					&gConnListLock,
-					&connListLockHandle
-					);
-				InsertTailList(&gConnList, &back_file_record->listEntry);
-				KeReleaseInStackQueuedSpinLock(&connListLockHandle);
-
-				KeSetEvent(&gWorkerEvent, IO_NO_INCREMENT, FALSE);
 			}
 
 		}
