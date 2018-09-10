@@ -112,7 +112,9 @@ PVOID *CompletionContext
 
 	if (memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "Format.exe", strlen("Format.exe")) == 0 ||
 		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "DiskFormat.exe", strlen("DiskFormat.exe")) == 0 ||
-		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "EstSipSrv.exe", strlen("EstSipSrv.exe")) == 0)
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "EstSipSrv.exe", strlen("EstSipSrv.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "diskpart.exe", strlen("diskpart.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "cmd.exe", strlen("cmd.exe")) == 0)
 	{
 		KdPrint(("FileDisk: 当前操作的进程为Format.exe，放过此进程\n"));
 		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
@@ -581,7 +583,9 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreReadCallback(
 
 	if (memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "Format.exe", strlen("Format.exe")) == 0 ||
 		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "DiskFormat.exe", strlen("DiskFormat.exe")) == 0 ||
-		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "EstSipSrv.exe", strlen("EstSipSrv.exe")) == 0)
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "EstSipSrv.exe", strlen("EstSipSrv.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "diskpart.exe", strlen("diskpart.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "cmd.exe", strlen("cmd.exe")) == 0)
 	{
 		KdPrint(("FileDisk: 当前操作的进程为Format.exe，放过此进程\n"));
 		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
@@ -661,7 +665,9 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreWriteCallback(
 
 	if (memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "Format.exe", strlen("Format.exe")) == 0 ||
 		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "DiskFormat.exe", strlen("DiskFormat.exe")) == 0 ||
-		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "EstSipSrv.exe", strlen("EstSipSrv.exe")) == 0)
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "EstSipSrv.exe", strlen("EstSipSrv.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "diskpart.exe", strlen("diskpart.exe")) == 0 ||
+		memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "cmd.exe", strlen("cmd.exe")) == 0)
 	{
 		KdPrint(("FileDisk: 当前操作的进程为Format.exe，放过此进程\n"));
 		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
