@@ -41,12 +41,25 @@
 
 
 // unsigned char * g_seedCode = "I am key";
-PFLT_FILTER g_FilterHandle;					//过滤器句柄
-PFLT_PORT 	g_ServerPort;
-PFLT_PORT 	g_ClientPort;
+PFLT_FILTER g_FilterHandle = NULL;					//过滤器句柄
+PFLT_PORT 	g_ServerPort = NULL;
+PFLT_PORT 	g_ClientPort = NULL;
 ULONG		g_filediskAuthority = 0x00000002;			//权限
+ULONG		g_exceptProcessId = 0;
+ULONG		g_formatting = 0;
+ULONG		g_fileAudit = 0;				//文件审计
 
 BYTE        g_DefaultKey[ENCRYPTKEY_LEN];
+
+LIST_ENTRY gConnList;
+KSPIN_LOCK gConnListLock;
+KEVENT     gWorkerEvent;
+PUNICODE_STRING ScannedExtensions = NULL;
+ULONG ScannedExtensionCount = 1;
+PWCHAR		g_scannedExtensions = NULL;
+
+UNICODE_STRING ScannedExtensionDefault = RTL_CONSTANT_STRING(L"doc");
+PWCHAR		g_backFilePath = NULL;
 
 
 
@@ -102,6 +115,11 @@ CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
 	0,
 	MiniFilterPreWriteCallback,
 	MiniFilterPostWriteCallback },
+
+	{ IRP_MJ_CLEANUP,
+	0,
+	MiniFilterPreCleanUpCallback,
+	MiniFilterPostCleanUpCallback },
 
 #if 0 // TODO - List all of the requests to filter.
 	{ IRP_MJ_CREATE_NAMED_PIPE,
@@ -290,12 +308,21 @@ CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
 };
 
 
+#include "filedisk.h"
+
+
 CONST FLT_CONTEXT_REGISTRATION ContextNotifications[] = {
 
 	{ FLT_VOLUME_CONTEXT,
 	0,
 	CleanupVolumeContext,
 	sizeof(VOLUME_CONTEXT),
+	FILE_DISK_POOL_TAG },
+
+	{ FLT_STREAMHANDLE_CONTEXT,
+	0,
+	NULL,
+	sizeof(SCANNER_STREAM_HANDLE_CONTEXT),
 	FILE_DISK_POOL_TAG },
 
 	{ FLT_CONTEXT_END }
@@ -360,7 +387,7 @@ ZwAdjustPrivilegesToken (
 
 #define NUMBEROFDEVICES_VALUE   L"NumberOfDevices"
 
-#define DEFAULT_NUMBEROFDEVICES 4
+#define DEFAULT_NUMBEROFDEVICES 10
 
 #define TOC_DATA_TRACK          0x04
 
@@ -458,6 +485,11 @@ FileDiskAdjustPrivilege (
 );
 
 
+
+UCHAR MYMINIFILTERCONNECT[20] = "hahaha";
+
+
+
 NTSTATUS
 FDMiniConnect(
 __in PFLT_PORT ClientPort,
@@ -468,15 +500,30 @@ __deref_out_opt PVOID *ConnectionCookie
 )
 {
 	DbgPrint("[mini-filter] NPMiniConnect");
+// 	PAGED_CODE();
+// 
+// 	UNREFERENCED_PARAMETER(ServerPortCookie);
+// 	UNREFERENCED_PARAMETER(ConnectionContext);
+// 	UNREFERENCED_PARAMETER(SizeOfContext);
+// 	UNREFERENCED_PARAMETER(ConnectionCookie);
+// 
+// 	g_ClientPort = ClientPort;
+// 	return STATUS_SUCCESS;
+
 	PAGED_CODE();
 
 	UNREFERENCED_PARAMETER(ServerPortCookie);
 	UNREFERENCED_PARAMETER(ConnectionContext);
 	UNREFERENCED_PARAMETER(SizeOfContext);
-	UNREFERENCED_PARAMETER(ConnectionCookie);
 
-	ASSERT(g_ClientPort == NULL);
-	g_ClientPort = ClientPort;
+	*ConnectionCookie = ClientPort;
+
+	if (sizeof(MYMINIFILTERCONNECT) == SizeOfContext &&
+		RtlEqualMemory(ConnectionContext, MYMINIFILTERCONNECT, SizeOfContext))
+	{
+		g_ClientPort = ClientPort;
+	}
+
 	return STATUS_SUCCESS;
 }
 
@@ -486,12 +533,20 @@ FDMiniDisconnect(
 __in_opt PVOID ConnectionCookie
 )
 {
+// 	PAGED_CODE();
+// 	UNREFERENCED_PARAMETER(ConnectionCookie);
+// 	DbgPrint("[mini-filter] NPMiniDisconnect");
+// 
+// 	//  Close our handle
+// 	FltCloseClientPort(g_FilterHandle, &g_ClientPort);
 	PAGED_CODE();
-	UNREFERENCED_PARAMETER(ConnectionCookie);
-	DbgPrint("[mini-filter] NPMiniDisconnect");
 
-	//  Close our handle
-	FltCloseClientPort(g_FilterHandle, &g_ClientPort);
+	if (g_ClientPort == ConnectionCookie) {
+
+		g_ClientPort = NULL;
+	}
+
+	FltCloseClientPort(g_FilterHandle, (PFLT_PORT*)&ConnectionCookie);
 }
 
 NTSTATUS
@@ -504,12 +559,66 @@ __in ULONG OutputBufferSize,
 __out PULONG ReturnOutputBufferLength
 )
 {
-
+	ULONG index = 0;
+	USHORT length;
+	UNICODE_STRING unBackFilePath;
+	PUNICODE_STRING ext;
 	if (InputBuffer != NULL &&
-		InputBufferSize >= sizeof(FILEDISK_REPLY))
+		InputBufferSize >= sizeof(COMMAND_MESSAGE))
 	{
-		g_filediskAuthority = ((PFILEDISK_REPLY)InputBuffer)->fileDiskAuthority;
-		KdPrint(("Filedisk MiniMessage:应用层传递过来的权限%d\n", g_filediskAuthority));
+		switch (((PCOMMAND_MESSAGE)InputBuffer)->Command)
+		{
+		case ENUM_AUTHORITY:
+			g_filediskAuthority = ((PCOMMAND_MESSAGE)InputBuffer)->commandContext;
+			KdPrint(("Filedisk MiniMessage:应用层传递过来的权限%d\n", g_filediskAuthority));
+			break;
+		case ENUM_EXCEPTPROCESSID:
+			g_exceptProcessId = ((PCOMMAND_MESSAGE)InputBuffer)->commandContext;
+			KdPrint(("Filedisk MiniMessage:应用层传递过来的放过进程为%d\n", g_exceptProcessId));
+			break;
+		case ENUM_FORMATTING:
+			g_formatting = ((PCOMMAND_MESSAGE)InputBuffer)->commandContext;
+			KdPrint(("Filedisk MiniMessage:应用层传递过来的是否在格式化%d\n", g_formatting));
+			break;
+
+		case ENUM_BACKFILEPATH:
+			g_backFilePath = ExAllocatePoolWithTag(NonPagedPool, wcslen(((PCOMMAND_MESSAGE)InputBuffer)->backFilePath) * 2 + 4, FILE_DISK_POOL_TAG);
+			RtlZeroMemory(g_backFilePath, wcslen(((PCOMMAND_MESSAGE)InputBuffer)->backFilePath) * 2 + 4);
+			memcpy(g_backFilePath, ((PCOMMAND_MESSAGE)InputBuffer)->backFilePath, wcslen(((PCOMMAND_MESSAGE)InputBuffer)->backFilePath) * 2 + 4);
+			RtlInitUnicodeString(&unBackFilePath, g_backFilePath);
+			KdPrint(("FileDisk: 传递过来的文件备份路径：%wZ\n", &unBackFilePath));
+			break;
+
+		case ENUM_BACKFILEEXTENTION:
+			ScannedExtensionCount = ((PCOMMAND_MESSAGE)InputBuffer)->commandContext;
+			g_scannedExtensions = ExAllocatePoolWithTag(NonPagedPool, 256 * 2, FILE_DISK_POOL_TAG);
+			memcpy(g_scannedExtensions, ((PCOMMAND_MESSAGE)InputBuffer)->backFilePath, 256 * 2);
+
+			ScannedExtensions = ExAllocatePoolWithTag(NonPagedPool,
+				ScannedExtensionCount * sizeof(UNICODE_STRING),
+				FILE_DISK_POOL_TAG);
+
+			ext = ScannedExtensions;
+
+			for (index = 0; index < ScannedExtensionCount; index++)
+			{
+				ext->MaximumLength = 256;
+				length = wcslen(g_scannedExtensions) * 2;
+				ext->Buffer = ExAllocatePoolWithTag(NonPagedPool, length, FILE_DISK_POOL_TAG);
+				RtlCopyMemory(ext->Buffer, (PCHAR)g_scannedExtensions, length);
+				ext->Length = length;
+
+				KdPrint(("FileDisk: 感兴趣的扩展名为：%wZ\n", ext));
+
+				ext++;
+				(PCHAR)g_scannedExtensions += 16;
+			}
+			break;
+
+		default:
+			break;
+		}
+
 	}
 
 	NTSTATUS status = STATUS_SUCCESS;
@@ -538,9 +647,29 @@ DriverEntry (
 	SECURITY_DESCRIPTOR			miniFltSd;
 	OBJECT_ATTRIBUTES			miniFltOa;
 	UNICODE_STRING				uniString;
+	HANDLE						threadHandle;
 
-
+// 	ScannedExtensions = &ScannedExtensionDefault;
 #ifdef MINI_FILTER
+
+	//初始化异步写线程以及链表,链表锁 加入事件 系统线程
+	InitializeListHead(&gConnList);
+	KeInitializeSpinLock(&gConnListLock);
+	KeInitializeEvent(
+		&gWorkerEvent,
+		SynchronizationEvent, //NotificationEvent,
+		FALSE
+		);
+
+	status = PsCreateSystemThread(
+		&threadHandle,
+		THREAD_ALL_ACCESS,
+		NULL,
+		NULL,
+		NULL,
+		TLInspectWorker,
+		NULL
+		);
 
 	status = FltRegisterFilter(DriverObject, &FilterRegistration, &g_FilterHandle);		//注册过滤器
 
@@ -590,7 +719,7 @@ DriverEntry (
 		FDMiniConnect,
 		FDMiniDisconnect,
 		FDMiniMessage,
-		1);
+		50);			//修改客户端最大连接数
 
 	if (!NT_SUCCESS(status)) {
 
@@ -637,14 +766,23 @@ DriverEntry (
         NULL,
         NULL
         );
-
-    ExFreePool(parameter_path.Buffer);
+	
+	if (parameter_path.Buffer != NULL)
+	{
+		ExFreePool(parameter_path.Buffer);
+		parameter_path.Buffer = NULL;
+	}
 
     if (!NT_SUCCESS(status))
     {
         DbgPrint("FileDisk: Query registry failed, using default values.\n");
         n_devices = DEFAULT_NUMBEROFDEVICES;
     }
+
+	if (n_devices < DEFAULT_NUMBEROFDEVICES)
+	{
+		n_devices = DEFAULT_NUMBEROFDEVICES;
+	}
 
     RtlInitUnicodeString(&device_dir_name, DEVICE_DIR_NAME);
 
@@ -771,7 +909,11 @@ FileDiskCreateDevice (
 
     if (!NT_SUCCESS(status))
     {
-        ExFreePool(device_name.Buffer);
+		if (device_name.Buffer != NULL)
+		{
+			ExFreePool(device_name.Buffer);
+			device_name.Buffer = NULL;
+		}
         return status;
     }
 
@@ -818,7 +960,11 @@ FileDiskCreateDevice (
     if (!NT_SUCCESS(status))
     {
         IoDeleteDevice(device_object);
-        ExFreePool(device_name.Buffer);
+		if (device_name.Buffer != NULL)
+		{
+			ExFreePool(device_name.Buffer);
+			device_name.Buffer = NULL;
+		}
         return status;
     }
 
@@ -845,8 +991,11 @@ FileDiskCreateDevice (
 
         IoDeleteDevice(device_object);
 
-        ExFreePool(device_name.Buffer);
-
+		if (device_name.Buffer != NULL)
+		{
+			ExFreePool(device_name.Buffer);
+			device_name.Buffer = NULL;
+		}
         return status;
     }
 
@@ -920,13 +1069,21 @@ FileDiskDeleteDevice (
 
     if (device_extension->device_name.Buffer != NULL)
     {
-        ExFreePool(device_extension->device_name.Buffer);
+		if (device_extension->device_name.Buffer != NULL)
+		{
+			ExFreePool(device_extension->device_name.Buffer);
+			device_extension->device_name.Buffer = NULL;
+		}
     }
 
     if (device_extension->security_client_context != NULL)
     {
         SeDeleteClientSecurity(device_extension->security_client_context);
-        ExFreePool(device_extension->security_client_context);
+		if (device_extension->security_client_context != NULL)
+		{
+			ExFreePool(device_extension->security_client_context);
+			device_extension->security_client_context = NULL;
+		}
     }
 
 #pragma prefast( suppress: 28175, "allowed in unload" )
@@ -1786,8 +1943,17 @@ FileDiskThread (
 					ENCRYPTKEY_LEN);
 
 				RtlCopyMemory(system_buffer, buffer, io_stack->Parameters.Read.Length);
-				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
-				ExFreePoolWithTag(decryptBuffer, FILE_DISK_POOL_TAG);
+
+				if (buffer != NULL)
+				{
+					ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+					buffer = NULL;
+				}
+				if (decryptBuffer != NULL)
+				{
+					ExFreePoolWithTag(decryptBuffer, FILE_DISK_POOL_TAG);
+					decryptBuffer = NULL;
+				}
 #else
 				RtlCopyMemory(system_buffer, buffer, io_stack->Parameters.Read.Length);
 				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
@@ -1862,8 +2028,18 @@ FileDiskThread (
 					&fileOffset,
 					NULL
 					);
-				ExFreePoolWithTag(encryptBuffer, FILE_DISK_POOL_TAG);
-				ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+
+				if (encryptBuffer != NULL)
+				{
+					ExFreePoolWithTag(encryptBuffer, FILE_DISK_POOL_TAG);
+					encryptBuffer = NULL;
+				}
+				if (buffer != NULL)
+				{
+					ExFreePoolWithTag(buffer, FILE_DISK_POOL_TAG);
+					buffer = NULL;
+				}
+
 #else
 				status = ZwWriteFile(
 					device_extension->file_handle,
@@ -1973,7 +2149,11 @@ FileDiskOpenFile (
 
     if (!NT_SUCCESS(status))
     {
-        ExFreePool(device_extension->file_name.Buffer);
+		if (device_extension->file_name.Buffer != NULL)
+		{
+			ExFreePool(device_extension->file_name.Buffer);
+			device_extension->file_name.Buffer = NULL;
+		}
         Irp->IoStatus.Status = status;
         Irp->IoStatus.Information = 0;
         return status;
@@ -1989,13 +2169,14 @@ FileDiskOpenFile (
 
     status = ZwCreateFile(
         &device_extension->file_handle,
-		device_extension->read_only ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
+// 		device_extension->read_only ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
+		GENERIC_READ | GENERIC_WRITE,
         &object_attributes,
         &Irp->IoStatus,
         NULL,
         FILE_ATTRIBUTE_NORMAL,
-        device_extension->read_only ? FILE_SHARE_READ : 0,
-// 		FILE_SHARE_READ,
+//         device_extension->read_only ? FILE_SHARE_READ : 0,
+ 		FILE_SHARE_READ | FILE_SHARE_WRITE,
         FILE_OPEN,
 		FILE_NON_DIRECTORY_FILE |
 		FILE_RANDOM_ACCESS |
@@ -2016,7 +2197,11 @@ FileDiskOpenFile (
         if (device_extension->read_only || open_file_information->FileSize.QuadPart == 0)
         {
             DbgPrint("FileDisk: File %.*S not found.\n", ufile_name.Length / 2, ufile_name.Buffer);
-            ExFreePool(device_extension->file_name.Buffer);
+			if (device_extension->file_name.Buffer != NULL)
+			{
+				ExFreePool(device_extension->file_name.Buffer);
+				device_extension->file_name.Buffer = NULL;
+			}
             RtlFreeUnicodeString(&ufile_name);
 
             Irp->IoStatus.Status = STATUS_NO_SUCH_FILE;
@@ -2033,7 +2218,8 @@ FileDiskOpenFile (
                 &Irp->IoStatus,
                 NULL,
                 FILE_ATTRIBUTE_NORMAL,
-                0,
+//                 0,
+				FILE_SHARE_READ | FILE_SHARE_WRITE,
                 FILE_OPEN_IF,
                 FILE_NON_DIRECTORY_FILE |
                 FILE_RANDOM_ACCESS |
@@ -2046,7 +2232,11 @@ FileDiskOpenFile (
             if (!NT_SUCCESS(status))
             {
                 DbgPrint("FileDisk: File %.*S could not be created.\n", ufile_name.Length / 2, ufile_name.Buffer);
-                ExFreePool(device_extension->file_name.Buffer);
+				if (device_extension->file_name.Buffer != NULL)
+				{
+					ExFreePool(device_extension->file_name.Buffer);
+					device_extension->file_name.Buffer = NULL;
+				}
                 RtlFreeUnicodeString(&ufile_name);
                 return status;
             }
@@ -2085,7 +2275,11 @@ FileDiskOpenFile (
                 if (!NT_SUCCESS(status))
                 {
                     DbgPrint("FileDisk: eof could not be set.\n");
-                    ExFreePool(device_extension->file_name.Buffer);
+					if (device_extension->file_name.Buffer != NULL)
+					{
+						ExFreePool(device_extension->file_name.Buffer);
+						device_extension->file_name.Buffer = NULL;
+					}
                     RtlFreeUnicodeString(&ufile_name);
                     ZwClose(device_extension->file_handle);
                     return status;
@@ -2097,7 +2291,11 @@ FileDiskOpenFile (
     else if (!NT_SUCCESS(status))
     {
         DbgPrint("FileDisk: File %.*S could not be opened.\n", ufile_name.Length / 2, ufile_name.Buffer);
-        ExFreePool(device_extension->file_name.Buffer);
+		if (device_extension->file_name.Buffer != NULL)
+		{
+			ExFreePool(device_extension->file_name.Buffer);
+			device_extension->file_name.Buffer = NULL;
+		}
         RtlFreeUnicodeString(&ufile_name);
         return status;
     }
@@ -2120,7 +2318,11 @@ FileDiskOpenFile (
 
 		if (!NT_SUCCESS(status))
 		{
-			ExFreePool(device_extension->file_name.Buffer);
+			if (device_extension->file_name.Buffer != NULL)
+			{
+				ExFreePool(device_extension->file_name.Buffer);
+				device_extension->file_name.Buffer = NULL;
+			}
 			ZwClose(device_extension->file_handle);
 			return status;
 		}
@@ -2158,7 +2360,11 @@ FileDiskOpenFile (
 
 		if (!NT_SUCCESS(status))
 		{
-			ExFreePool(device_extension->file_name.Buffer);
+			if (device_extension->file_name.Buffer != NULL)
+			{
+				ExFreePool(device_extension->file_name.Buffer);
+				device_extension->file_name.Buffer = NULL;
+			}
 			ZwClose(device_extension->file_handle);
 			return status;
 		}
@@ -2187,7 +2393,11 @@ FileDiskOpenFile (
 
     if (!NT_SUCCESS(status))
     {
-        ExFreePool(device_extension->file_name.Buffer);
+		if (device_extension->file_name.Buffer != NULL)
+		{
+			ExFreePool(device_extension->file_name.Buffer);
+			device_extension->file_name.Buffer = NULL;
+		}
         ZwClose(device_extension->file_handle);
         return status;
     }
@@ -2226,7 +2436,11 @@ FileDiskCloseFile (
 
     device_extension = (PDEVICE_EXTENSION) DeviceObject->DeviceExtension;
 
-    ExFreePool(device_extension->file_name.Buffer);
+	if (device_extension->file_name.Buffer != NULL)
+	{
+		ExFreePool(device_extension->file_name.Buffer);
+		device_extension->file_name.Buffer = NULL;
+	}
 
     ZwClose(device_extension->file_handle);
 

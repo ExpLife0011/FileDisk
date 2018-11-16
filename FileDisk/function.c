@@ -87,7 +87,11 @@ __in __out BYTE* pBusType
 	__finally
 	{
 		if (QueryBuffer)
-			ExFreePoolWithTag(QueryBuffer, FILE_DISK_POOL_TAG);
+			if (QueryBuffer != NULL)
+			{
+				ExFreePoolWithTag(QueryBuffer, FILE_DISK_POOL_TAG);
+				QueryBuffer = NULL;
+			}
 	}
 
 	return status;
