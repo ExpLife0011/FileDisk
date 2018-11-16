@@ -108,6 +108,7 @@ PVOID *CompletionContext
 	NTSTATUS status;
 
 
+
 	KdPrint(("Filedisk: 当前操作的进程为：%s\n", PsGetProcessImageFileName(PsGetCurrentProcess())));
 
 	if (memcmp(PsGetProcessImageFileName(PsGetCurrentProcess()), "Format.exe", strlen("Format.exe")) == 0 ||
@@ -120,6 +121,22 @@ PVOID *CompletionContext
 		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 	}
 
+
+	operationDescription = ((Data->Iopb->Parameters.Create.Options >> 24) & 0x000000FF);
+	KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE operationDescription=%d\n", operationDescription));
+	/*
+	FILE_CREATED
+
+	FILE_OPENED
+
+	FILE_OVERWRITTEN
+
+	FILE_SUPERSEDED
+
+	FILE_EXISTS
+
+	FILE_DOES_NOT_EXIST
+	*/
 
 	status = FltGetVolumeContext(
 		FltObjects->Filter,
@@ -137,29 +154,33 @@ PVOID *CompletionContext
 		else
 		{
 			KdPrint(("FileDisk: Create10M空间禁用\n"));
-			Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
-			Data->IoStatus.Information = 0;
-			return FLT_PREOP_COMPLETE;
+
+			/*
+			使10M空间可手动弹出,还是解决不了，目前这样修改10M空间可以显示大小，但不能使用
+			*/
+			if (operationDescription == FILE_CREATE)
+			{
+				if (FlagOn(Data->Iopb->Parameters.Create.SecurityContext->DesiredAccess, FILE_WRITE_DATA |
+					FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | FILE_APPEND_DATA | WRITE_DAC | WRITE_OWNER))
+				{
+ 					Data->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
+ 					Data->IoStatus.Information = 0;
+ 					return FLT_PREOP_COMPLETE;
+//					return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+				}
+				else
+				{
+					return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+				}
+
+			}
+			else
+			{
+				return (FLT_PREOP_SUCCESS_WITH_CALLBACK);
+			}
+
 		}
 	}
-
-
-	operationDescription = ((Data->Iopb->Parameters.Create.Options >> 24) & 0x000000FF);
-	/*
-	FILE_CREATED
-
-	FILE_OPENED
-
-	FILE_OVERWRITTEN
-
-	FILE_SUPERSEDED
-
-	FILE_EXISTS
-
-	FILE_DOES_NOT_EXIST
-	*/
-
-	KdPrint(("FileDisk MiniFilter: IRP_MJ_CREATE operationDescription=%d\n", operationDescription));
 
 
 
@@ -420,8 +441,11 @@ FLT_POST_OPERATION_FLAGS Flags
 		if (FlagOn(Data->Iopb->Parameters.Create.SecurityContext->DesiredAccess,
 			FILE_WRITE_DATA | FILE_APPEND_DATA |
 			DELETE | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA |
-			WRITE_DAC | WRITE_OWNER | ACCESS_SYSTEM_SECURITY))						//监测文件变动
+			WRITE_DAC | WRITE_OWNER | ACCESS_SYSTEM_SECURITY
+			)
+			)						//监测文件变动
 		{
+			
 			//
 			//  Check if the extension matches the list of extensions we are interested in
 			//
@@ -429,138 +453,161 @@ FLT_POST_OPERATION_FLAGS Flags
 			scanFile = ScannerpCheckExtension(&nameInfo->Extension);   //这里判断是否为感兴趣的文件，根据扩展名
 
 
-			if (scanFile)
+			if (FlagOn(Data->Iopb->Parameters.Create.Options, FILE_DELETE_ON_CLOSE))
 			{
-				RtlInitUnicodeString(&uDiskName, /*L"\\??\\C:\\backfile"*/g_backFilePath);   //应用层直接传进来可用字符串
-				fullpath_name = GetFileAppFullPath(&uDiskName, 0, nameInfo);
-
-				RtlInitUnicodeString(&us_fullpath_name, fullpath_name);
-
-				KdPrint(("创建的文件为：%wZ\n", &us_fullpath_name));
-
-				RtlInitUnicodeString(&unDestFileName, fullpath_name);     //目标文件名
-				InitializeObjectAttributes(&objAttributes, &unDestFileName, OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE, NULL, NULL);
-				status = FltCreateFile(g_FilterHandle,
-					NULL,
-					&FileHandle,
-					SYNCHRONIZE | GENERIC_WRITE | GENERIC_READ,
-					&objAttributes,
-					&Block,
-					NULL,
-					FILE_ATTRIBUTE_NORMAL,
-					FILE_SHARE_READ | FILE_SHARE_WRITE,
-					FILE_OVERWRITE_IF,
-					FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
-					NULL,
-					0,
-					IO_FORCE_ACCESS_CHECK);
-
-				if (STATUS_OBJECT_PATH_NOT_FOUND == status)
-				{
-					//目录创建成功后再创建文件
-					status = CreateDirectory(fullpath_name);
-					if (!NT_SUCCESS(status))
-					{
-						KdPrint(("IsoVfsPostCreateBackFile error:%08x-%wZ\n", status, &unDestFileName));
-					}
-					KdPrint(("FileDisk: MiniFilter 目录创建失败\n"));
-					status = FltCreateFile(g_FilterHandle,
-						NULL,
-						&FileHandle,
-						SYNCHRONIZE | GENERIC_WRITE | GENERIC_READ,
-						&objAttributes,
-						&Block,
-						NULL,
-						FILE_ATTRIBUTE_NORMAL,
-						FILE_SHARE_READ | FILE_SHARE_WRITE,
-						FILE_OVERWRITE_IF,
-						FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
-						NULL,
-						0,
-						IO_FORCE_ACCESS_CHECK);
-				}
-
-				if (STATUS_OBJECT_NAME_NOT_FOUND == status)
-				{
-					status = FltCreateFile(g_FilterHandle,
-						NULL,
-						&FileHandle,
-						SYNCHRONIZE | GENERIC_WRITE | GENERIC_READ,
-						&objAttributes,
-						&Block,
-						NULL,
-						FILE_ATTRIBUTE_NORMAL,
-						FILE_SHARE_READ | FILE_SHARE_WRITE,
-						FILE_OVERWRITE_IF,
-						FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
-						NULL,
-						0,
-						IO_FORCE_ACCESS_CHECK);
-				}
-
-				//如果文件还是没有创建成功，则返回
-				if (!NT_SUCCESS(status))
-				{
-					KdPrint(("FileDisk: 文件没有创建成功，不进行之后步骤\n"));
-					return FLT_POSTOP_FINISHED_PROCESSING;
-				}
-
-				status = ObReferenceObjectByHandle(FileHandle, 0, NULL, KernelMode, (PVOID*)&FileObj, NULL);
-
-				if (!FltBackInstance)
-				{
-					status = GetOurInstanceFromVolume(g_FilterHandle, FileObj, &FltBackInstance);
-					if (!NT_SUCCESS(status))
-					{
-						KdPrint(("CopyFileToBackupDir GetFilterInstance error:%08x\n", status));
-					}
-				}
-
-				//
-				//
-				//  The create has requested write access, mark to rescan the file.
-				//  Allocate the context.
-				//
-
-				status = FltAllocateContext(FltObjects->Filter,
-					FLT_STREAMHANDLE_CONTEXT,
-					sizeof(SCANNER_STREAM_HANDLE_CONTEXT),
-					PagedPool,
-					&scannerContext);
-
-				if (NT_SUCCESS(status)) {
-
-					//
-					//  Set the handle context.
-					//
-
-					scannerContext->RescanRequired = TRUE;
-					scannerContext->FileHandle = FileHandle;
-					scannerContext->FileObj = FileObj;
-					scannerContext->FltBackInstance = FltBackInstance;
-
-					(VOID)FltSetStreamHandleContext(Data->Iopb->TargetInstance,
-						Data->Iopb->TargetFileObject,
-						FLT_SET_CONTEXT_REPLACE_IF_EXISTS,
-						scannerContext,
-						NULL);
-
-					//
-					//  Normally we would check the results of FltSetStreamHandleContext
-					//  for a variety of error cases. However, The only error status 
-					//  that could be returned, in this case, would tell us that
-					//  contexts are not supported.  Even if we got this error,
-					//  we just want to release the context now and that will free
-					//  this memory if it was not successfully set.
-					//
-
-					//
-					//  Release our reference on the context (the set adds a reference)
-					//
-
-					FltReleaseContext(scannerContext);
-				}
+				//Delete the file when the last handle to it is passed to FltClose. 
+				//这种属于临时文件 不记录
 			}
+			else
+			{
+				if ((FILE_CREATED == Data->IoStatus.Information)
+					|| (FILE_SUPERSEDED == Data->IoStatus.Information)
+/*					|| (FILE_OPENED == Data->IoStatus.Information)*/
+					|| (FILE_OVERWRITTEN == Data->IoStatus.Information)
+					|| (0 == ((PFSRTL_COMMON_FCB_HEADER)Data->Iopb->TargetFileObject->FsContext)->FileSize.QuadPart)
+					)
+/*				if (Data->IoStatus.Status == STATUS_SUCCESS)*/
+				{
+					if (scanFile)
+					{
+						RtlInitUnicodeString(&uDiskName, /*L"\\??\\C:\\backfile"*/g_backFilePath);   //应用层直接传进来可用字符串
+						fullpath_name = GetFileAppFullPath(&uDiskName, 0, nameInfo);
+
+						RtlInitUnicodeString(&us_fullpath_name, fullpath_name);
+
+						KdPrint(("Filedisk:创建的文件为：%wZ\n", &us_fullpath_name));
+
+						RtlInitUnicodeString(&unDestFileName, fullpath_name);     //目标文件名
+						InitializeObjectAttributes(&objAttributes, &unDestFileName, OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE, NULL, NULL);
+						status = FltCreateFile(g_FilterHandle,
+							NULL,
+							&FileHandle,
+							SYNCHRONIZE | GENERIC_WRITE | GENERIC_READ,
+							&objAttributes,
+							&Block,
+							NULL,
+							FILE_ATTRIBUTE_NORMAL,
+							FILE_SHARE_READ | FILE_SHARE_WRITE,
+							FILE_OVERWRITE_IF,
+							FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
+							NULL,
+							0,
+							IO_FORCE_ACCESS_CHECK);
+
+						if (STATUS_OBJECT_PATH_NOT_FOUND == status)
+						{
+							//目录创建成功后再创建文件
+							status = CreateDirectory(fullpath_name);
+							if (!NT_SUCCESS(status))
+							{
+								KdPrint(("IsoVfsPostCreateBackFile error:%08x-%wZ\n", status, &unDestFileName));
+							}
+							KdPrint(("FileDisk: MiniFilter 目录创建失败\n"));
+							status = FltCreateFile(g_FilterHandle,
+								NULL,
+								&FileHandle,
+								SYNCHRONIZE | GENERIC_WRITE | GENERIC_READ,
+								&objAttributes,
+								&Block,
+								NULL,
+								FILE_ATTRIBUTE_NORMAL,
+								FILE_SHARE_READ | FILE_SHARE_WRITE,
+								FILE_OVERWRITE_IF,
+								FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
+								NULL,
+								0,
+								IO_FORCE_ACCESS_CHECK);
+						}
+
+						if (STATUS_OBJECT_NAME_NOT_FOUND == status)
+						{
+							status = FltCreateFile(g_FilterHandle,
+								NULL,
+								&FileHandle,
+								SYNCHRONIZE | GENERIC_WRITE | GENERIC_READ,
+								&objAttributes,
+								&Block,
+								NULL,
+								FILE_ATTRIBUTE_NORMAL,
+								FILE_SHARE_READ | FILE_SHARE_WRITE,
+								FILE_OVERWRITE_IF,
+								FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
+								NULL,
+								0,
+								IO_FORCE_ACCESS_CHECK);
+						}
+
+						//如果文件还是没有创建成功，则返回
+						if (!NT_SUCCESS(status))
+						{
+							KdPrint(("FileDisk: 文件没有创建成功，不进行之后步骤\n"));
+							return FLT_POSTOP_FINISHED_PROCESSING;
+						}
+
+						status = ObReferenceObjectByHandle(FileHandle, 0, NULL, KernelMode, (PVOID*)&FileObj, NULL);
+
+						if (!FltBackInstance)
+						{
+							status = GetOurInstanceFromVolume(g_FilterHandle, FileObj, &FltBackInstance);
+							if (!NT_SUCCESS(status))
+							{
+								KdPrint(("CopyFileToBackupDir GetFilterInstance error:%08x\n", status));
+							}
+						}
+
+						//
+						//
+						//  The create has requested write access, mark to rescan the file.
+						//  Allocate the context.
+						//
+
+						status = FltAllocateContext(FltObjects->Filter,
+							FLT_STREAMHANDLE_CONTEXT,
+							sizeof(SCANNER_STREAM_HANDLE_CONTEXT),
+							PagedPool,
+							&scannerContext);
+
+						if (NT_SUCCESS(status)) {
+
+							//
+							//  Set the handle context.
+							//
+
+							scannerContext->RescanRequired = TRUE;
+							scannerContext->FileHandle = FileHandle;
+							scannerContext->FileObj = FileObj;
+							scannerContext->FltBackInstance = FltBackInstance;
+
+							KdPrint(("FileDisk:创建文件句柄：%08x, 文件名为：%wZ\n", FileHandle, &nameInfo->Name));
+							
+
+							(VOID)FltSetStreamHandleContext(Data->Iopb->TargetInstance,
+								Data->Iopb->TargetFileObject,
+								FLT_SET_CONTEXT_REPLACE_IF_EXISTS,
+								scannerContext,
+								NULL);
+
+							//
+							//  Normally we would check the results of FltSetStreamHandleContext
+							//  for a variety of error cases. However, The only error status 
+							//  that could be returned, in this case, would tell us that
+							//  contexts are not supported.  Even if we got this error,
+							//  we just want to release the context now and that will free
+							//  this memory if it was not successfully set.
+							//
+
+							//
+							//  Release our reference on the context (the set adds a reference)
+							//
+
+							FltReleaseContext(scannerContext);
+						}
+					}
+
+				}
+
+			}
+
 		}
 
 	}
@@ -747,6 +794,8 @@ FLT_PREOP_CALLBACK_STATUS MiniFilterPreWriteCallback(
 					back_file_record->FltInstance = context->FltBackInstance;
 					//是否需要关闭文件句柄
 					back_file_record->isCloseHanle = FALSE;
+
+					KdPrint(("FileDisk:写文件句柄：%08x\n", back_file_record->FileHandle));
 
 					KeAcquireInStackQueuedSpinLock(
 						&gConnListLock,
@@ -1765,6 +1814,7 @@ void DoWriteFile(PBACKE_FILE_RECORD packet)
 		}
 		else
 		{
+			ZwFlushBuffersFile(packet->FileHandle, &ioStatus);
 			ioStatus.Status = FltClose(packet->FileHandle);
 		}
 
